@@ -1,13 +1,98 @@
 import telebot
 from telebot import types
+import psycopg2
 
 token='7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
 bot=telebot.TeleBot(token)
 
+#Подключение к БД
+def connect_to_db():
+    try:
+        conn = psycopg2.connect(
+            dbname = "postgres",
+            user = "postgres",
+            password = "qweasd09id",
+            host = "localhost",
+            port = "5433"
+        )
+        return conn
+    except Exception as e:
+        print("Ошибка подключения к базе данных.")
+        return None
+#Подключение к БД
+
+
 #приветсвие. пофикшу!!1!
+user_data = {}
 @bot.message_handler(commands=['start'])
 def start_message(message):
-  bot.send_message(message.chat.id,"Добро пожаловать в бот по учебной части! ")
+  bot.send_message(message.chat.id,"Добро пожаловать в EVALIX, бот по учебной части!\n Введите ваш логин.")
+
+  user_data[message.chat.id] = {"step": "login"}  # Сохраняем, что находимся на шаге ввода логина
+
+
+@bot.message_handler(
+    func=lambda message: message.chat.id in user_data and user_data[message.chat.id]["step"] == "login")
+def process_login(message):
+    login = message.text.strip()
+
+    conn = connect_to_db()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT login FROM login WHERE login = %s", (login,))
+        user = cursor.fetchone()
+
+        if user:
+            user_data[message.chat.id]["step"] = "password"  # Переводим пользователя на шаг ввода пароля
+            user_data[message.chat.id]["login"] = login  # Сохраняем логин для дальнейшей проверки пароля
+            user_data[message.chat.id]["id_student"] = user[0]
+            bot.send_message(message.chat.id, "Логин найден. Введите ваш пароль.")
+        else:
+            bot.send_message(message.chat.id, "Такого логина не существует. Попробуйте еще раз.")
+
+        cursor.close()
+        conn.close()
+
+    else:
+        bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+
+
+@bot.message_handler(
+    func=lambda message: message.chat.id in user_data and user_data[message.chat.id]["step"] == "password")
+def process_password(message):
+    password = message.text.strip()
+    login = user_data[message.chat.id].get("login")
+
+    conn = connect_to_db()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT password FROM login WHERE login = %s", (login,))
+        user = cursor.fetchone()
+
+        if user and user[0] == password:  # Проверка пароля
+            bot.send_message(message.chat.id, "Пароль верный! Добро пожаловать!")
+            user_data[message.chat.id]["step"] = "authenticated"  # Пользователь успешно аутентифицирован
+        else:
+            bot.send_message(message.chat.id, "Неверный пароль. Попробуйте еще раз.")
+
+        cursor.close()
+        conn.close()
+
+    else:
+        bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #основные кнопки
 @bot.message_handler(commands=['command'])
@@ -33,6 +118,7 @@ week_schedule = {
     'ПТ': ['БД', 'БД', 'БД']
 }
 
+
 @bot.message_handler(func=lambda message: message.text == 'Расписание')
 def show_schedule_buttons(message):
     markup = types.InlineKeyboardMarkup()
@@ -46,7 +132,45 @@ def show_day_schedule(call):
     day = call.data
     schedule = '\n'.join([f'{i + 1}. {lesson}' for i, lesson in enumerate(week_schedule.get(day, []))])
     bot.send_message(call.message.chat.id, f'Расписание на {day}:\n{schedule}')
-#КОНЕЦ РАСПИСАНИЯ
+
+@bot.message_handler(func=lambda message: message.text == 'оценки и GPA')
+def show_GPA(message):
+    id_student = user_data[message.chat.id].get("id_student")
+    conn = connect_to_db()
+
+    if not conn:
+        bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+        return
+
+    cursor = conn.cursor()
+    cursor.execute(
+        '''SELECT ocenki.id_ocenki, ocenki.ocenka, students.FIO, teachers.FIO_teacher, ocenki.date 
+           FROM ocenki 
+           JOIN students ON students.id_student = ocenki.id_student 
+           JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
+           WHERE students.id_student = %s 
+           ORDER BY ocenki.date''', (id_student,)
+    )
+    rows = cursor.fetchall()
+
+    column_names = [desc[1] for desc in cursor.description]
+    for desc in cursor.description:
+        column_names.append(desc[1])
+
+    result = ""
+    for row in rows:
+        row_dict = {column_names[i]: row[i] for i in range(len(row))}
+        result += f"Оценка: {row_dict['ocenka']}, Студент: {row_dict['FIO']}, Преподаватель: {row_dict['FIO_teacher']}, Дата: {row_dict['date']}\n"
+
+    if result:
+        bot.send_message(message.chat.id, result)
+    else:
+        bot.send_message(message.chat.id, "Нет данных об оценках.")
+
+
+
+
+
 
 
 
