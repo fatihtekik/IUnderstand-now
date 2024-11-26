@@ -2,27 +2,25 @@ import telebot
 from telebot import types
 import psycopg2
 
-token='гитхаб жалуется мол токен слит и бла бла'
+token='7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
 bot=telebot.TeleBot(token)
 
+login=""
 #Подключение к БД
 def connect_to_db():
     try:
         conn = psycopg2.connect(
             dbname = "postgres",
             user = "postgres",
-            password = "qweasd09id",
+            password = "Aidana2007",
             host = "localhost",
-            port = "5433"
+            port = "5432"
         )
         return conn
     except Exception as e:
         print("Ошибка подключения к базе данных.")
         return None
-#Подключение к БД
 
-
-#приветсвие. пофикшу!!1!
 user_data = {}
 @bot.message_handler(commands=['start'])
 def start_message(message):
@@ -81,19 +79,6 @@ def process_password(message):
     else:
         bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 #основные кнопки
 @bot.message_handler(commands=['command'])
 def command_message(message):
@@ -133,9 +118,11 @@ def show_day_schedule(call):
     schedule = '\n'.join([f'{i + 1}. {lesson}' for i, lesson in enumerate(week_schedule.get(day, []))])
     bot.send_message(call.message.chat.id, f'Расписание на {day}:\n{schedule}')
 
+
 @bot.message_handler(func=lambda message: message.text == 'оценки и GPA')
 def show_GPA(message):
-    id_student = user_data[message.chat.id].get("id_student")
+    name_student = user_data[message.chat.id].get("id_student")
+
     conn = connect_to_db()
 
     if not conn:
@@ -143,6 +130,10 @@ def show_GPA(message):
         return
 
     cursor = conn.cursor()
+    cursor.execute("SELECT id_student FROM login WHERE login = %s", (name_student,))
+
+    id_student = cursor.fetchone()[0]
+
     cursor.execute(
         '''SELECT ocenki.id_ocenki, ocenki.ocenka, students.FIO, teachers.FIO_teacher, ocenki.date 
            FROM ocenki 
@@ -151,27 +142,21 @@ def show_GPA(message):
            WHERE students.id_student = %s 
            ORDER BY ocenki.date''', (id_student,)
     )
+
     rows = cursor.fetchall()
 
-    column_names = [desc[1] for desc in cursor.description]
-    for desc in cursor.description:
-        column_names.append(desc[1])
+
+    column_names = [desc[0] for desc in cursor.description]
 
     result = ""
     for row in rows:
         row_dict = {column_names[i]: row[i] for i in range(len(row))}
-        result += f"Оценка: {row_dict['ocenka']}, Студент: {row_dict['FIO']}, Преподаватель: {row_dict['FIO_teacher']}, Дата: {row_dict['date']}\n"
+        result += f"Оценка: {row_dict['ocenka']}, Студент: {row_dict['fio']}, Преподаватель: {row_dict['fio_teacher']}, Дата: {row_dict['date']}\n"
 
     if result:
         bot.send_message(message.chat.id, result)
     else:
         bot.send_message(message.chat.id, "Нет данных об оценках.")
-
-
-
-
-
-
 
 
 bot.infinity_polling()
