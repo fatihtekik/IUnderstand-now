@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import psycopg2
 
-token='7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
+token='бугага нету токена'
 bot=telebot.TeleBot(token)
 
 login=""
