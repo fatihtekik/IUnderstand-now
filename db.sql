@@ -187,3 +187,87 @@ select * from students;
 select * from gruppy;
 select * from spec;
 
+CREATE TABLE login (
+    id_user SERIAL PRIMARY KEY,
+    id_student INT UNIQUE,
+    login VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_login_student FOREIGN KEY (id_student) REFERENCES students (id_student)
+);
+
+
+INSERT INTO login (id_student, login, password) VALUES
+(1, 'shugaeva_anel', 'Anel2008'),
+(2, 'kalieva_aidana', 'Aidana2007'),
+(3, 'tekik_fatih', 'Fatih2008'),
+(4, 'raimbekova_ayim', 'Aiym2008'),
+(5, 'zhakupbekova_diana', 'Diana2007'),
+(6, 'poperechniy_danila', 'Danil2024'),
+(7, 'muzichenko_yuriy', 'Yuriy2024'),
+(8, 'prusikin_ilya', 'Ilya2024'),
+(9, 'gabidullin_ruslan', 'Ruslan2024'),
+(10, 'kuplinov_dmitriy', 'Dmitriy2024'),
+(11, 'pavel_viktor', 'Viktor2024'),
+(12, 'volya_pavel', 'Pavel2024'),
+(13, 'bykov_andrey', 'Andrey2024'),
+(14, 'lobanov_semen', 'Semen2024'),
+(15, 'saburov_nurlan', 'Nurlan2024');
+
+select * from login
+
+CREATE OR REPLACE FUNCTION update_login(
+    p_id_student INT,
+    o_login VARCHAR(50),
+    o_password VARCHAR(255),
+    n_login VARCHAR(50) DEFAULT NULL,
+    n_password VARCHAR(255) DEFAULT NULL
+)
+RETURNS TEXT AS $$
+DECLARE
+    current_login VARCHAR(50);
+    current_password VARCHAR(255);
+BEGIN
+    
+    SELECT login, password
+    INTO current_login, current_password
+    FROM login
+    WHERE id_student = p_id_student;
+
+    
+    IF current_login != o_login OR current_password != o_password THEN
+        RAISE EXCEPTION 'Неверный текущий логин или пароль';
+    END IF;
+
+    
+    IF n_login IS NULL AND n_password IS NULL THEN
+        RAISE EXCEPTION 'Необходимо указать новый логин или новый пароль';
+    END IF;
+
+    
+    IF n_login IS NOT NULL THEN
+        UPDATE login
+        SET login = p_new_login
+        WHERE id_student = p_id_student;
+    END IF;
+
+    
+    IF n_password IS NOT NULL THEN
+        UPDATE login
+        SET password = n_password
+        WHERE id_student = p_id_student;
+    END IF;
+
+    RETURN 'Логин и/или пароль успешно обновлены';
+END;
+$$ LANGUAGE plpgsql;
+
+
+SELECT update_login(
+    1, 
+    'shugaeva_anel', 
+    'Anel2008', 
+    NULL, 
+    'New2008'
+);
+
+
