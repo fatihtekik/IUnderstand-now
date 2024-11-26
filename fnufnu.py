@@ -122,7 +122,7 @@ def show_day_schedule(call):
 @bot.message_handler(func=lambda message: message.text == 'оценки и GPA')
 def show_GPA(message):
     name_student = user_data[message.chat.id].get("id_student")
-
+#вы забыли найти айдишку и получали ошибку вместо цифры
     conn = connect_to_db()
 
     if not conn:
