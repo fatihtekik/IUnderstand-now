@@ -270,4 +270,55 @@ SELECT update_login(
     'New2008'
 );
 
+insert into teachers(id_teacher, fio_teacher, iin, nazvanie_predmeta) values
+(4, 'Жолдықараева Еркеайым Бағланқызы', '972345678912', ' Составление алгоритма и создание блок схемы на основе спецификации программного обеспечения');
+
+create table teacher_login(
+	teacher_login_id serial primary key,
+	id_teacher int not null unique,
+	login VARCHAR(100),
+	password VARCHAR(100),
+	foreign key (id_teacher) references teachers(id_teacher)
+);
+
+insert into teacher_login(teacher_login_id, id_teacher, login, password) values
+(1, 1, 'ahmadieva_arai', 'arai88'),
+(2, 2, 'shapiggulin_bekdaulet', 'plake_plake1'),
+(3, 3, 'muzdanov_bayirzhan', 'muzdanov_boba1101'),
+(4, 4, 'zholdyrkaeva_erkeaiym', 'erke23_32');
+
+select * from teacher_login;
+
+create table user_roles(
+	id_role serial primary key,
+	id_student int,
+	id_teacher int,
+	role_name VARCHAR(30),
+	foreign key (id_student) references login(id_student),
+	foreign key (id_teacher) references teacher_login(id_teacher)
+);
+
+insert into user_roles(id_role, id_student, id_teacher, role_name) values
+(1, 1, null, 'student'),
+(2, 2, null, 'student'),
+(3, 3, null, 'student'),
+(4, 4, null, 'student'),
+(5, 5, null, 'student'),
+(6, 6, null, 'student'),
+(7, 7, null, 'student'),
+(8, 8, null, 'student'),
+(9, 9, null, 'student'),
+(10, 10, null, 'student'),
+(11, 11, null, 'student'),
+(12, 12, null, 'student'),
+(13, 13, null, 'student'),
+(14, 14, null, 'student'),
+(15, 15, null, 'student'),
+(16, null, 1, 'teacher'),
+(17, null, 2, 'teacher'),
+(18, null, 3, 'teacher'),
+(19, null, 4, 'teacher');
+
+select * from user_roles;
+
 
