@@ -18,9 +18,8 @@ def get_db_connection():
     return connection
 
 def json_serial(obj):
-    """Преобразует объекты типа date или datetime в строковый формат"""
     if isinstance(obj, (date, datetime)):
-        return obj.isoformat()  # Преобразуем дату или datetime в строку
+        return obj.isoformat()
     raise TypeError(f"Type {type(obj)} not serializable")
 
 @app.route('/', methods=['GET'])
@@ -82,6 +81,49 @@ def get_data():
         return Response(json.dumps(result, default=json_serial), mimetype='application/json')
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+
+
+@app.route('/api/dataById', methods=['GET'])
+def get_data_by_id():
+    try:
+        # Получаем id студента из запроса (например, через параметр ?id_student=1)
+        id_student = request.args.get('id_student')
+
+        if not id_student:
+            return Response(json.dumps({"error": "Не указан id студента"}), status=400, mimetype='application/json')
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+
+        cursor.execute('''
+            SELECT 
+                ocenki.id_ocenki, 
+                ocenki.ocenka, 
+                students.FIO, 
+                teachers.FIO_teacher, 
+                ocenki.date 
+            FROM ocenki 
+            JOIN students ON students.id_student = ocenki.id_student 
+            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
+            WHERE students.id_student = %s 
+            ORDER BY ocenki.date
+        ''', (id_student,))
+
+        rows = cursor.fetchall()
+
+
+        column_names = [desc[0] for desc in cursor.description]
+        result = [{column_names[i]: row[i] for i in range(len(row))} for row in rows]
+
+
+        cursor.close()
+        connection.close()
+
+        return Response(json.dumps(result, default=json_serial), mimetype='application/json')
+
+    except Exception as e:
+        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
