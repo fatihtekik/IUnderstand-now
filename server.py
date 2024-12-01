@@ -3,6 +3,9 @@ from flask_cors import CORS
 import psycopg2
 import json
 from datetime import date, datetime
+import logging
+
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -80,7 +83,8 @@ def get_data():
         connection.close()
         return Response(json.dumps(result, default=json_serial), mimetype='application/json')
     except Exception as e:
-        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+        logging.error("An error occurred in get_data: %s", str(e))
+        return Response(json.dumps({"error": "An internal error has occurred!"}), status=500, mimetype='application/json')
 
 
 @app.route('/api/dataById', methods=['GET'])
@@ -122,7 +126,8 @@ def get_data_by_id():
         return Response(json.dumps(result, default=json_serial), mimetype='application/json')
 
     except Exception as e:
-        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+        logging.error("An error occurred in get_data_by_id: %s", str(e))
+        return Response(json.dumps({"error": "An internal error has occurred!"}), status=500, mimetype='application/json')
 
 
 if __name__ == '__main__':
