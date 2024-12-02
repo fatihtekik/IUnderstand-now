@@ -1,27 +1,33 @@
+import os.path
+from ast import get_docstring
+from lib2to3.pgen2.tokenize import group
+
 import telebot
 from pyexpat.errors import messages
 from telebot import types
-import psycopg2
-from telebot.formatting import mspoiler
+import psycopg
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
+
 
 token='7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
 bot=telebot.TeleBot(token)
 
 STUDENT_R = 'student'
 TEACHER_R = 'teacher'
-
-
 login=""
+
+if not os.path.exists('documents'):
+    os.makedirs('documents')
+
 #Подключение к БД
 def connect_to_db():
     try:
-        conn = psycopg2.connect(
-            dbname = "postgres",
+        conn = psycopg.connect(
+            dbname = "папапап",
             user = "postgres",
-            password = "qweasd09id",
+            password = "Aidana2007",
             host = "localhost",
-            port = "5433"
+            port = "5432"
         )
         return conn
     except Exception as e:
@@ -32,11 +38,14 @@ user_data = {}
 @bot.message_handler(commands=['start'])
 def start_message(message):
   bot.send_message(message.chat.id,"Добро пожаловать в EVALIX, бот по учебной части!\n Введите ваш логин.", reply_markup=ReplyKeyboardRemove())
+
   user_data[message.chat.id] = {"step": "login"}  # Сохраняем, что находимся на шаге ввода логина
+
 
 @bot.message_handler(func=lambda message: message.chat.id in user_data and user_data[message.chat.id]["step"] == "login")
 def process_login(message):
     login = message.text.strip()
+
     conn = connect_to_db()
     if conn:
         cursor = conn.cursor()
@@ -61,8 +70,13 @@ def process_login(message):
         else:
             bot.send_message(message.chat.id, "Такого логина не существует. Попробуйте еще раз.")
 
+        cursor.close()
+        conn.close()
 
-@bot.message_handler(func=lambda message: message.chat.id in user_data and user_data[message.chat.id]["step"] == "password")
+
+
+@bot.message_handler(
+    func=lambda message: message.chat.id in user_data and user_data[message.chat.id]["step"] == "password")
 def process_password(message):
     password = message.text.strip()
     login = user_data[message.chat.id].get("login")
@@ -85,7 +99,6 @@ def process_password(message):
                     types.KeyboardButton('Академическая успеваемость'),
                     types.KeyboardButton('оценки и GPA'),
                     types.KeyboardButton('Расписание'),
-                    types.KeyboardButton('Переносы'),
                     types.KeyboardButton('Рейтинг'),
                     types.KeyboardButton('Документы'),
                     types.KeyboardButton('Оплата за учёбу')
@@ -217,6 +230,7 @@ def get_gpa_from_score(score):
 @bot.message_handler(func=lambda message: message.text == 'оценки и GPA')
 def show_GPA(message):
     name_student = user_data[message.chat.id].get("id_student")
+
 #вы забыли найти айдишку и получали ошибку вместо цифры
     conn = connect_to_db()
 
@@ -228,7 +242,7 @@ def show_GPA(message):
     cursor.execute("SELECT id_student FROM login WHERE login = %s", (name_student,))
 
     id_student = cursor.fetchone()[0]
-
+    print(id_student)
     cursor.execute(
         '''SELECT ocenki.ocenka, teachers.FIO_teacher, ocenki.date 
            FROM ocenki 
@@ -253,12 +267,15 @@ def show_GPA(message):
     result = ""
     for row in rows:
         ocenka, fio_teacher, date = row
+        if ocenka == 0:  # Пропускаем нулевые оценки
+            continue
         row_dict = {column_names[i]: row[i] for i in range(len(row))}
         result += f"Оценка: {row_dict['ocenka']}\nПреподаватель: {row_dict['fio_teacher']}\nДата: {row_dict['date']}\n\n"
 
         ocenka_int= int(ocenka)
-        gpa= get_gpa_from_score(ocenka_int)
-        grades.append(gpa)
+        if ocenka_int > 0:  # Исключаем нулевые оценки
+            gpa = get_gpa_from_score(ocenka_int)
+            grades.append(gpa)
 
 
 
@@ -275,6 +292,12 @@ def show_GPA(message):
         bot.send_message(message.chat.id, result)
     else:
         bot.send_message(message.chat.id, "Нет данных об оценках.")
+
+
+
+
+
+
 
 
 @bot.message_handler(func=lambda message: message.text == 'Академическая успеваемость')
@@ -309,22 +332,114 @@ def akadem(message):
         return
 
     column_names = [desc[0] for desc in cursor.description]
-    grades = []
+    grade_nul = []
+    gradess=[]
+    count =0
 
     result = ""
     for row in rows:
         ocenka, fio_teacher, date = row
-        grades.append(int(ocenka))
+        grade_nul.append(int(ocenka))
+        if ocenka > 0:  # Исключаем нулевые оценки
+            gradess.append(ocenka)
+        elif ocenka==0:
+            count+=1
+            result += f"Дата Н-ки: {date}\n"
 
-    if grades:
-        cr = sum(grades) / len(grades)
-        result += f"Ваш средний бал: {cr:.2f}"
+
+    if grade_nul:
+        cr = sum(grade_nul) / len(grade_nul)
+        crr = sum(gradess) / len(gradess)
+        result += f"Ваш средний бал: {cr:.2f} (учитывая Н-ки)\nКоличество Н-ок: {count}\n\nВаш средний бал: {crr:.2f} (не учитывая Н-ки)"
+
     else:
         result += "Нету оценок"
     if result:
         bot.send_message(message.chat.id, result)
     else:
         bot.send_message(message.chat.id, "Нет данных об оценках.")
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == 'Документы')
+def docs(message):
+    markup = types.InlineKeyboardMarkup()
+    docs_add= types.InlineKeyboardButton(text="Загрузить документ", callback_data="docs_add")
+    docs_show= types.InlineKeyboardButton(text="Показать документ", callback_data="docs_show")
+    markup.add(docs_add, docs_show)
+
+    bot.send_message(message.chat.id,"Выберите действие с документами", reply_markup=markup )
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def handle_callback(call):
+    if call.data == "docs_add":
+        bot.send_message(call.message.chat.id,"Отправьте файл вашего документа" )
+
+        @bot.message_handler(content_types=['photo', 'video', 'audio', 'text', 'document', 'sticker'])
+        def handle_file(message):
+            if message.document:
+                file_info = bot.get_file(message.document.file_id)
+                downloaded_file = bot.download_file(file_info.file_path)
+                save_path = os.path.join(r"C:\Users\Admin\Downloads\python aidana\documents",
+                                         message.document.file_name)  # сохраняем файл с его исходным именем
+                with open(save_path, 'wb') as new_file:
+                    new_file.write(downloaded_file)
+                stud = derzhi_id(user_data[message.chat.id].get("id_student"))
+                file_name = message.document.file_name
+                save_file_db(stud, file_name, save_path)
+                bot.reply_to(message, f'Файл {file_name} сохранен.')
+
+            else:
+                bot.send_message(message.chat.id, "Документ должен быть в виде файла")
+
+    elif call.data == "docs_show":
+        # stud = user_data.get(call.message.chat.id, {}).get("id_student")
+        stud= derzhi_id(user_data[call.message.chat.id].get("id_student"))
+        docum = get_docs(stud)
+
+        if docum:
+            for doc in docum:
+                bot.send_message(call.message.chat.id, f"Документ: {doc['file_name']}")
+                # Отправляем сам файл
+                bot.send_document(call.message.chat.id, open(doc['file_path'], 'rb'))
+        else:
+            bot.send_message(call.message.chat.id, "Вы не загрузили ни один документ.")
+
+def get_docs(stud):
+    conn  = connect_to_db()
+    cursor = conn.cursor()
+    query = "SELECT file_name, file_path FROM documents WHERE stud = %s"
+    cursor.execute(query, (stud,))
+    documents = cursor.fetchall()
+    document_list = [{'file_name': doc[0], 'file_path': doc[1]} for doc in documents]
+    return document_list
+
+    cursor.close()
+    conn.close()
+
+
+
+def save_file_db(stud, file_name, file_path):
+    conn=connect_to_db()
+    cursor = conn.cursor()
+    try:
+        query = "insert into documents (stud, file_name, file_path) values(%s, %s, %s)"
+        cursor.execute(query, (stud, file_name, file_path))
+        conn.commit()
+
+
+    finally:
+        cursor.close()
+        conn.close()
+
+def derzhi_id(name_student):
+    conn = connect_to_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id_student FROM login WHERE login = %s", (name_student,))
+    id = cursor.fetchone()[0]
+    return id
 
 
 @bot.message_handler(func=lambda message: message.text == 'Переносы')
@@ -386,6 +501,14 @@ def get_t_id(name_teacher):
     print(name_teacher)
     id_t = cursor.fetchone()[0]
     return id_t
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == 'Рейтинг')
+def reiting():
+
+
 
 
 
