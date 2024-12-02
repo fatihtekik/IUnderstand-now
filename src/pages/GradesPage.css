@@ -1,0 +1,199 @@
+/* Общий стиль для страницы */
+body {
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(to right, #007bff, #0056b3); /* Градиент для фона */
+  color: #f8f9fa; /* Светлый текст */
+}
+
+/* Основной контейнер */
+.grades-page {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 20px;
+  background-color: #ffffff; /* Белый фон */
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* Легкая тень */
+  border-radius: 15px; /* Скругленные углы */
+  overflow: hidden;
+}
+
+/* Заголовок */
+h1 {
+  text-align: center;
+  font-size: 28px;
+  color: #0056b3; /* Тёмно-синий текст */
+  margin-bottom: 20px;
+}
+
+/* Контейнер для кнопок */
+.controls {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.controls button {
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 10px 15px;
+  margin: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease-in-out;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Тень для кнопок */
+}
+
+.controls button:hover {
+  background: linear-gradient(to right, #0056b3, #004085);
+  transform: scale(1.05); /* Увеличение при наведении */
+}
+
+/* Стиль таблицы */
+.grades-page-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #f8f9fa; /* Светлый фон */
+  margin: 20px 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.grades-page-table thead {
+  background: linear-gradient(to right, #0056b3, #004085);
+  color: white;
+}
+
+.grades-page-table th, .grades-page-table td {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+.grades-page-table tbody tr:nth-child(even) {
+  background-color: #e9ecef; /* Легкий серый фон */
+}
+
+.grades-page-table tbody tr:hover {
+  background-color: #d6e4f0; /* Подсветка строки при наведении */
+}
+
+/* Стиль GPA */
+.gpa {
+  text-align: center;
+  font-size: 22px;
+  background: linear-gradient(to right, #007bff, #0056b3);
+  color: white;
+  padding: 15px;
+  border-radius: 10px;
+  margin-top: 20px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2); /* Легкая тень */
+}
+
+/* Выпадающий список */
+select {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+  margin: 10px;
+  font-size: 16px;
+}
+
+/* Уведомления об ошибках или пустых данных */
+p {
+  text-align: center;
+  font-size: 18px;
+  color: #dc3545; /* Красный для уведомлений */
+  margin-top: 20px;
+}
+body {
+  background-color: #002b5c; /* Темный фон */
+  color: #ffffff; /* Белый текст */
+  font-family: Arial, sans-serif; /* Простая читаемая гарнитура */
+  line-height: 1.6; /* Увеличенный межстрочный интервал для удобства чтения */
+  margin: 0;
+  padding: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #ffcc00; /* Желтый оттенок для заголовков */
+  margin-bottom: 15px;
+}
+
+p {
+  font-size: 16px; /* Увеличенный размер текста для удобства */
+  margin-bottom: 15px;
+}
+
+a {
+  color: #ffcc00; /* Желтые ссылки */
+  text-decoration: none;
+}
+
+a:hover {
+  color: #ffffff; /* Белые ссылки при наведении */
+  text-decoration: underline;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #003366; /* Темный синий фон таблицы */
+  color: #ffffff; /* Белый текст */
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #004080; /* Контур ячеек */
+  text-align: left;
+}
+
+th {
+  background-color: #00509e; /* Более яркий синий для заголовков таблиц */
+  color: #ffffff;
+}
+
+button {
+  background-color: #00509e; /* Синий фон кнопок */
+  color: #ffffff; /* Белый текст */
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #ffcc00; /* Желтый фон при наведении */
+  color: #002b5c; /* Темный текст */
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff; /* Белый фон таблицы */
+  color: #000000; /* Чёрный текст */
+}
+
+th {
+  background-color: #00509e; /* Синий фон для заголовков */
+  color: #ffffff; /* Белый текст заголовков */
+  font-weight: bold;
+}
+
+td {
+  color: #000000; /* Чёрный текст для ячеек */
+  background-color: #f5f5f5; /* Светло-серый фон */
+  text-align: left;
+}
+
+tr:nth-child(even) td {
+  background-color: #e6f2ff; /* Светло-голубой фон для чётных строк */
+}
+
+tr:hover td {
+  background-color: #cce7ff; /* Подсветка строки при наведении */
+}
+
+td, th {
+  padding: 10px; /* Внутренний отступ текста */
+  border: 1px solid #ccc; /* Лёгкий контур ячеек */
+}
