@@ -169,55 +169,136 @@ schedules = {
     }
 }
 
+teach_schedules = {
+    'ИКТ': {
+        'ПН': ['ПО2301', 'ПО2301', ''],
+        'ВТ': ['ПО2302', '', 'ПО2302'],
+        'СР': [' ', ' ', ' '],
+        'ЧТ': [' ', ' ', ' '],
+        'ПТ': [' ', ' ', ' ']
+    },
+    'Составление алгоритмов': {
+        'ПН': ['ПО2302', 'ПО2302', 'ПО2301'],
+        'ВТ': ['ПО2301', 'ВТ2310', 'ПО2302'],
+        'СР': [' ', ' ', 'ПО2302'],
+        'ЧТ': ['ПО2301', 'ПО2301', 'ПО2302'],
+        'ПТ': ['ПО2302', ' ', '  ']
+    },
+    'БД': {
+        'ПН': [' ', ' ', 'ВТ2310'],
+        'ВТ': [' ', 'ПО2301', 'ПО2302'],
+        'СР': ['ВТ2310', 'ВТ2310', ' ПО2302'],
+        'ЧТ': ['ПО2302', 'ПО2301', 'ПО2301'],
+        'ПТ': ['ПО2301', 'ПО2301', 'ПО2301']
+   }
+}
+
+
+
+
 #Выбор группы
 @bot.message_handler(func=lambda message: message.text == 'Расписание')
 def choose_group(message):
-    markup = types.InlineKeyboardMarkup()
-    if "group_id" in user_data[message.chat.id]:
+    role = user_data.get(message.chat.id, {}).get("role", None)
+    if role == STUDENT_R:
         markup = types.InlineKeyboardMarkup()
-        days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']
-        buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
-        markup.add(*buttons)
-        bot.send_message(message.chat.id, f'Вы выбрали группу {user_data[message.chat.id]["group_id"]}. Теперь выберите день недели:',
+        if "group_id" in user_data[message.chat.id]:
+            days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']
+            buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
+            markup.add(*buttons)
+            bot.send_message(message.chat.id, f'Вы выбрали группу {user_data[message.chat.id]["group_id"]}. Теперь выберите день недели:',
                          reply_markup=markup)
+        else:
+            groups = ['ПО2301', 'ПО2302', 'ВТ2310']
+            buttons = [types.InlineKeyboardButton(group, callback_data=f"group_{group}") for group in groups]
+            markup.add(*buttons)
+            bot.send_message(message.chat.id, 'Выберите свою группу:', reply_markup=markup)
 
-    else:
-        groups = ['ПО2301', 'ПО2302', 'ВТ2310']
-        buttons = [types.InlineKeyboardButton(group, callback_data=f"group_{group}") for group in groups]
+
+    elif role == TEACHER_R:
+        markup = types.InlineKeyboardMarkup()
+        subjects = ['ИКТ', 'Составление алгоритмов', 'БД']
+        buttons = [types.InlineKeyboardButton(subject, callback_data=f"subject_teach_{subject}") for subject in
+                   subjects]
         markup.add(*buttons)
-        bot.send_message(message.chat.id, 'Выберите свою группу:', reply_markup=markup)
+        bot.send_message(message.chat.id, 'Выберите предмет для просмотра расписания:', reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "Ваша роль не определена. Обратитесь к администратору.")
 
 # Обработчик выбора группы
 @bot.callback_query_handler(func=lambda call: call.data.startswith("group_"))
 def choose_day(call):
-    group_id = call.data.split("_")[1]
-    user_data[call.message.chat.id]["group_id"] = group_id
+    role = user_data.get(call.message.chat.id, {}).get("role", None)
+    if role == STUDENT_R:
+        group_id = call.data.split("_")[1]
+        user_data[call.message.chat.id]["group_id"] = group_id
+        markup = types.InlineKeyboardMarkup()
+        days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']
+        buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
+        markup.add(*buttons)
+        bot.send_message(call.message.chat.id, f'Вы выбрали группу {group_id}. Теперь выберите день недели:', reply_markup=markup)
+
+    elif role == TEACHER_R:
+        group_id = call.data.split("_")[1]
+        user_data[call.message.chat.id]["group_id"] = group_id
+        markup = types.InlineKeyboardMarkup()
+        days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']
+        buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
+        markup.add(*buttons)
+        bot.send_message(call.message.chat.id, f'Вы выбрали группу {group_id}. Теперь выберите день недели:',
+                         reply_markup=markup)
+    else:
+        bot.send_message(call.message.chat.id, "Ваша роль не определена. Пожалуйста, обратитесь к администратору.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("subject_teach_"))
+def choose_subject(call):
+    subject = call.data.split("_")[2]
+    user_data[call.message.chat.id]["subject"] = subject
     markup = types.InlineKeyboardMarkup()
     days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ']
     buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
     markup.add(*buttons)
-    bot.send_message(call.message.chat.id, f'Вы выбрали группу {group_id}. Теперь выберите день недели:', reply_markup=markup)
+    bot.send_message(call.message.chat.id, f'Вы выбрали предмет "{subject}". Теперь выберите день недели:', reply_markup=markup)
 
 # Обработчик выбора дня
 @bot.callback_query_handler(func=lambda call: call.data.startswith("day_"))
 def show_day_schedule(call):
-    day = call.data.split("_")[1]
+    role = user_data.get(call.message.chat.id, {}).get("role", None)
+    print(role)
+    if id_stud is not None:
+        day = call.data.split("_")[2]
+        group_id = user_data.get(call.message.chat.id)["group_id"]
+        if not group_id:
+            bot.send_message(call.message.chat.id, "Ошибка: группа не выбрана.")
+            return
+        if group_id in stud_schedules:
+            schedule = stud_schedules[group_id].get(day, [])
+            if schedule:
+                schedule_text = '\n'.join([f'{i + 1}. {lesson}' for i, lesson in enumerate(schedule)])
+                bot.send_message(call.message.chat.id, f'Расписание на {day} для группы {group_id}:\n{schedule_text}')
 
-    group_id = user_data.get(call.message.chat.id)["group_id"]
-    if not group_id:
-        bot.send_message(call.message.chat.id, "Ошибка: группа не выбрана.")
-        return
-    if group_id in schedules:
-        schedule = schedules[group_id].get(day, [])
-        if schedule:
-            schedule_text = '\n'.join([f'{i + 1}. {lesson}' for i, lesson in enumerate(schedule)])
-            bot.send_message(call.message.chat.id, f'Расписание на {day} для группы {group_id}:\n{schedule_text}')
+    elif id_teach is not None:
+        day = call.data.split("_")[1]
+        subject = user_data.get(call.message.chat.id, {}).get("subject")
+        if not subject:
+            bot.send_message(call.message.chat.id, "Ошибка: предмет не выбран.")
+            return
+        if subject in teach_schedules:
+            schedule = teach_schedules[subject].get(day, [])
+            if schedule:
+                schedule_text = '\n'.join([f'{i + 1}. {group}' for i, group in enumerate(schedule) if group.strip()])
+                if schedule_text:
+                    bot.send_message(call.message.chat.id,
+                                     f'Расписание на {day} для предмета {subject}:\n{schedule_text}')
+                else:
+                    bot.send_message(call.message.chat.id, f'На {day} для предмета {subject} нет занятий.')
+            else:
+                bot.send_message(call.message.chat.id, f'На {day} для предмета {subject} нет занятий.')
         else:
-            bot.send_message(call.message.chat.id, f'На {day} у группы {group_id} нет занятий.')
+            bot.send_message(call.message.chat.id, "Расписание для вашего предмета не найдено.")
+
     else:
-        bot.send_message(call.message.chat.id, "Расписание для вашей группы не найдено.")
-
-
+        bot.send_message(call.message.chat.id, "Ваша роль не определена. Пожалуйста, обратитесь к администратору.")
 
 
 
