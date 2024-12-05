@@ -22,12 +22,25 @@ function GradesPage() {
   const [data, setData] = useState([]);
   const [viewMode, setViewMode] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('');
-  const [gpa, setGpa] = useState(null); // Средний GPA
-
+  const [subjectAverages, setSubjectAverages] = useState([]); // Средние значения по предметам
   const navigate = useNavigate();
+
   const currentStudentId = Number(localStorage.getItem('id_student'));
 
-  // Загрузка всех данных
+  useEffect(() => {
+    if (viewMode === 'subject' && currentStudentId) {
+      fetch(`http://localhost:5000/api/dataById?id_student=${currentStudentId}`)
+        .then((response) => response.json())
+        .then((fetchedData) => {
+          const dataWithGPA = fetchedData.map((item) => ({
+            ...item,
+            gpa: getGPAFromScore(item.ocenka),
+          }));
+          setData(dataWithGPA);
+        })
+        .catch((error) => console.error('Ошибка при загрузке данных:', error));
+    }
+  }, [viewMode, currentStudentId]);
   useEffect(() => {
     if (!currentStudentId) {
       navigate('/login'); // Если ID студента отсутствует
@@ -35,7 +48,6 @@ function GradesPage() {
       fetch('http://localhost:5000/api/data')
         .then((response) => response.json())
         .then((fetchedData) => {
-          // Преобразуем каждую оценку в её GPA-эквивалент
           const dataWithGPA = fetchedData.map((item) => ({
             ...item,
             gpa: getGPAFromScore(item.ocenka),
@@ -47,29 +59,29 @@ function GradesPage() {
     }
   }, [currentStudentId, navigate, viewMode]);
 
-  // Загрузка данных "Мои оценки" и расчёт GPA
+  // Рассчёт средних значений по предметам
   useEffect(() => {
-    if (viewMode === 'subject' && currentStudentId) {
-      fetch(`http://localhost:5000/api/dataById?id_student=${currentStudentId}`)
-        .then((response) => response.json())
-        .then((filteredData) => {
-          // Преобразуем оценки в GPA
-          const dataWithGPA = filteredData.map((item) => ({
-            ...item,
-            gpa: getGPAFromScore(item.ocenka),
-          }));
-          setData(dataWithGPA);
+    if (viewMode === 'gpa') {
+      const groupedData = data.reduce((acc, item) => {
+        if (!acc[item.nazvanie_predmeta]) {
+          acc[item.nazvanie_predmeta] = { totalScore: 0, count: 0 };
+        }
+        acc[item.nazvanie_predmeta].totalScore += item.ocenka;
+        acc[item.nazvanie_predmeta].count += 1;
+        return acc;
+      }, {});
 
-          // Рассчитываем средний GPA
-          const totalGPA = dataWithGPA.reduce((sum, item) => sum + item.gpa, 0);
-          const calculatedGpa =
-            dataWithGPA.length > 0 ? (totalGPA / dataWithGPA.length).toFixed(2) : 0;
+      const averages = Object.keys(groupedData).map((subject) => ({
+        subject,
+        averageScore: (groupedData[subject].totalScore / groupedData[subject].count).toFixed(2),
+        gpa: getGPAFromScore(
+          groupedData[subject].totalScore / groupedData[subject].count
+        ).toFixed(2),
+      }));
 
-          setGpa(calculatedGpa);
-        })
-        .catch((error) => console.error('Ошибка при загрузке данных для студента:', error));
+      setSubjectAverages(averages);
     }
-  }, [viewMode, currentStudentId]);
+  }, [viewMode, data]);
 
   const handleViewModeChange = (mode) => {
     setViewMode(mode);
@@ -99,9 +111,7 @@ function GradesPage() {
         <table className="grades-page-table">
           <thead>
             <tr>
-              <th>Айди оценки</th>
               <th>Оценка</th>
-              <th>GPA</th>
               <th>Студент</th>
               <th>Предмет</th>
               <th>Дата</th>
@@ -110,9 +120,7 @@ function GradesPage() {
           <tbody>
             {data.map((row, index) => (
               <tr key={index}>
-                <td>{row.id_ocenki}</td>
                 <td>{row.ocenka}</td>
-                <td>{row.gpa}</td>
                 <td>{row.fio}</td>
                 <td>{row.nazvanie_predmeta}</td>
                 <td>{row.date}</td>
@@ -143,9 +151,7 @@ function GradesPage() {
           <table className="grades-page-table">
             <thead>
               <tr>
-                <th>Айди оценки</th>
                 <th>Оценка</th>
-                <th>GPA</th>
                 <th>Студент</th>
                 <th>Дата</th>
               </tr>
@@ -157,9 +163,7 @@ function GradesPage() {
                 )
                 .map((row, index) => (
                   <tr key={index}>
-                    <td>{row.id_ocenki}</td>
                     <td>{row.ocenka}</td>
-                    <td>{row.gpa}</td>
                     <td>{row.fio}</td>
                     <td>{row.date}</td>
                   </tr>
@@ -170,11 +174,55 @@ function GradesPage() {
       )}
 
       {/* Режим: GPA */}
-      {viewMode === 'gpa' && (
-        <div className="gpa">
-          <h2>Ваш GPA: {gpa || 'Нет данных'}</h2>
-        </div>
-      )}
+      {/* Режим: GPA */}
+{viewMode === 'gpa' && (
+  <div>
+    <h2>Средние оценки и GPA по предметам</h2>
+    <table className="grades-page-table">
+      <thead>
+        <tr>
+          <th>Предмет</th>
+          <th>Средняя оценка</th>
+          <th>Средний GPA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {subjectAverages.map((subject, index) => (
+          <tr key={index}>
+            <td>{subject.subject}</td>
+            <td>{subject.averageScore}</td>
+            <td>{subject.gpa}</td>
+          </tr>
+        ))}
+        {/* Итоговая строка */}
+        <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f1f1' }}>
+          <td>Итог</td>
+          <td>
+            {subjectAverages.length > 0
+              ? (
+                  subjectAverages.reduce(
+                    (sum, subj) => sum + parseFloat(subj.averageScore),
+                    0
+                  ) / subjectAverages.length
+                ).toFixed(2)
+              : 'Нет данных'}
+          </td>
+          <td>
+            {subjectAverages.length > 0
+              ? (
+                  subjectAverages.reduce(
+                    (sum, subj) => sum + parseFloat(subj.gpa),
+                    0
+                  ) / subjectAverages.length
+                ).toFixed(2)
+              : 'Нет данных'}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+)}
+
     </div>
   );
 }

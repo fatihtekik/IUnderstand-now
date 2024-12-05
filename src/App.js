@@ -18,7 +18,7 @@ function App() {
   return (
     <Router>
       <div className="app-layout">
-        {isLoggedIn && <Sidebar setIsLoggedIn={setIsLoggedIn} />} {/* Сайдбар виден только если авторизован */}
+        {isLoggedIn && <Sidebar setIsLoggedIn={setIsLoggedIn} />} 
         <div className={isLoggedIn ? 'content-with-sidebar' : 'content'}>
           <Routes>
             <Route path="/login" element={<LoginPage setIsLoggedIn={setIsLoggedIn} />} />

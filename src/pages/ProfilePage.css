@@ -1,0 +1,34 @@
+.profile-page {
+    display: flex;
+    background-color: #eef4fb;
+    height: 100vh;
+  }
+  
+  .profile-content {
+    flex-grow: 1;
+    padding: 20px;
+    color: #003366;
+  }
+  
+  .profile-content h1 {
+    font-size: 2rem;
+    color: #003366;
+    margin-bottom: 20px;
+  }
+  
+  .profile-details {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .profile-details p {
+    font-size: 1.2rem;
+    margin: 10px 0;
+  }
+  
+  .profile-details strong {
+    color: #003366;
+  }
+  

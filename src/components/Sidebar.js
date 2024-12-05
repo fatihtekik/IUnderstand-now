@@ -1,21 +1,23 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Sidebar.css'; // Подключаем стили
+import asLogo from './asLogo.jpg';
+
+
 
 const Sidebar = ({ setIsLoggedIn }) => {
-  const navigate = useNavigate(); // Хук для навигации
+  const navigate = useNavigate(); 
 
   const handleLogout = () => {
-    localStorage.setItem('isLoggedIn', false); // Сбрасываем статус авторизации
-    localStorage.removeItem('id_student'); // Удаляем ID студента, если нужно
-    // setIsLoggedIn(false); // Обновляем состояние авторизации
-    navigate('/login'); // Перенаправляем на страницу логина
+    localStorage.setItem('isLoggedIn', false); 
+    localStorage.removeItem('id_student'); 
+    navigate('/login'); 
   };
 
   return (
     <div className="sidebar">
       <div className="profile">
-        <img src="/path-to-avatar.jpg" alt="Avatar" className="avatar" />
+      <img src={asLogo} alt="Avatar" className="avatar" />
         <h3>Имя пользователя</h3>
       </div>
       <nav>

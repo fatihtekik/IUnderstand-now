@@ -1,4 +1,4 @@
-from flask import Flask, Response, request
+from flask import Flask, Response, request, jsonify
 from flask_cors import CORS
 import psycopg2
 import json
@@ -60,7 +60,7 @@ def get_data():
                 ocenki.id_ocenki, 
                 ocenki.ocenka, 
                 students.FIO, 
-                teachers.FIO_teacher, 
+                teachers.nazvanie_predmeta, 
                 ocenki.date 
             FROM ocenki 
             JOIN students ON students.id_student = ocenki.id_student 
@@ -100,7 +100,7 @@ def get_data_by_id():
                 ocenki.id_ocenki, 
                 ocenki.ocenka, 
                 students.FIO, 
-                teachers.FIO_teacher, 
+                teachers.nazvanie_predmeta, 
                 ocenki.date 
             FROM ocenki 
             JOIN students ON students.id_student = ocenki.id_student 
@@ -120,9 +120,45 @@ def get_data_by_id():
         connection.close()
 
         return Response(json.dumps(result, default=json_serial), mimetype='application/json')
+    finally:
+        print("hello")
+
+
+@app.route('/api/studentWithGroup', methods=['GET'])
+def get_student_with_group():
+    student_id = request.args.get('id_student')
+    if not student_id:
+        return jsonify({"error": "ID студента не указан"}), 400
+
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute('''
+            SELECT 
+                s.FIO AS "fio",
+                s.IIN AS "iin",
+                g.nazvanie_gruppy AS "group"
+            FROM 
+                students s
+            JOIN 
+                gruppy g
+            ON 
+                s.id_gruppy = g.id_gruppy
+            WHERE 
+                s.id_student = %s;
+        ''', (student_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        if result:
+            column_names = ["fio", "iin", "group"]
+            return jsonify(dict(zip(column_names, result)))
+        else:
+            return jsonify({"error": "Студент не найден"}), 404
 
     except Exception as e:
-        return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
