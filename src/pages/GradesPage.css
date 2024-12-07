@@ -103,7 +103,6 @@ select {
 p {
   text-align: center;
   font-size: 18px;
-  color: #dc3545; /* Красный для уведомлений */
   margin-top: 20px;
 }
 body {

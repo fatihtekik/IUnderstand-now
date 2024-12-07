@@ -160,6 +160,91 @@ def get_student_with_group():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/grades', methods=['GET'])
+def get_all_grades():
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute('''
+            SELECT 
+                ocenki.id_ocenki, 
+                ocenki.ocenka, 
+                students.FIO AS student_fio, 
+                teachers.nazvanie_predmeta, 
+                ocenki.date 
+            FROM ocenki 
+            JOIN students ON students.id_student = ocenki.id_student 
+            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
+            ORDER BY ocenki.date DESC
+        ''')
+        rows = cursor.fetchall()
 
+        column_names = [desc[0] for desc in cursor.description]
+        result = [dict(zip(column_names, row)) for row in rows]
+
+        cursor.close()
+        connection.close()
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Эндпоинт для редактирования оценки
+@app.route('/api/grades/<int:id_ocenki>', methods=['PUT'])
+def edit_grade(id_ocenki):
+    try:
+        data = request.get_json()
+        new_grade = data.get('ocenka')
+
+        if new_grade is None:
+            return jsonify({"error": "Отсутствует поле 'ocenka'"}), 400
+
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "UPDATE ocenki SET ocenka = %s WHERE id_ocenki = %s RETURNING *",
+            (new_grade, id_ocenki)
+        )
+        updated_grade = cursor.fetchone()
+
+        if not updated_grade:
+            cursor.close()
+            connection.close()
+            return jsonify({"error": "Оценка не найдена"}), 404
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        column_names = [desc[0] for desc in cursor.description]
+        grade_dict = dict(zip(column_names, updated_grade))
+
+        return jsonify(grade_dict), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Эндпоинт для удаления оценки
+@app.route('/api/grades/<int:id_ocenki>', methods=['DELETE'])
+def delete_grade(id_ocenki):
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM ocenki WHERE id_ocenki = %s RETURNING *", (id_ocenki,))
+        deleted_grade = cursor.fetchone()
+
+        if not deleted_grade:
+            cursor.close()
+            connection.close()
+            return jsonify({"error": "Оценка не найдена"}), 404
+
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        return jsonify({"message": "Оценка удалена"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
 if __name__ == '__main__':
     app.run(debug=True)
