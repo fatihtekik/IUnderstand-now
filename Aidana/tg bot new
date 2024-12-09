@@ -1,14 +1,18 @@
 import os.path
 from ast import get_docstring
-
+import datetime
 
 import telebot
 from pyexpat.errors import messages
 from telebot import types
-import psycopg
+import psycopg2 as psycopg
 from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
+
 id_teach =None
 id_stud = None
+user_data2 = {}
+
+
 
 
 token='7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
@@ -40,11 +44,12 @@ def connect_to_db():
 user_data = {}
 @bot.message_handler(commands=['start'])
 def start_message(message):
-  global user_data, id_stud, id_teach
+  global user_data, id_stud, id_teach, selected_group
+  selected_group = {}
   user_data = {}
   id_stud = None
   id_teach = None
-  bot.send_message(message.chat.id,"Добро пожаловать в EVALIX, бот по учебной части!\n Введите ваш логин.", reply_markup=ReplyKeyboardRemove())
+  bot.send_message(message.chat.id,"Добро пожаловать в 𝐀𝖼𝖾𝐒𝗐𝗂𝗆‍, бот по учебной части!\n Введите ваш логин.", reply_markup=ReplyKeyboardRemove())
 
   user_data[message.chat.id] = {"step": "login"}  # Сохраняем, что находимся на шаге ввода логина
 
@@ -117,8 +122,7 @@ def process_password(message):
                     types.KeyboardButton('оценки и GPA'),
                     types.KeyboardButton('Расписание'),
                     types.KeyboardButton('Рейтинг'),
-                    types.KeyboardButton('Документы'),
-                    types.KeyboardButton('Оплата за учёбу')
+                    types.KeyboardButton('Документы')
                 )
             elif role == TEACHER_R:
                 markup.add(
@@ -145,7 +149,7 @@ def process_password(message):
 
 
 #РАСПИСАНИЕ
-schedules = {
+stud_schedules = {
     'ПО2301': {
         'ПН': ['ИКТ', 'ИКТ', 'Алгоритмы'],
         'ВТ': ['Алгоритмы', 'БД', 'ИКТ'],
@@ -266,7 +270,7 @@ def show_day_schedule(call):
     role = user_data.get(call.message.chat.id, {}).get("role", None)
     print(role)
     if id_stud is not None:
-        day = call.data.split("_")[2]
+        day = call.data.split("_")[1]
         group_id = user_data.get(call.message.chat.id)["group_id"]
         if not group_id:
             bot.send_message(call.message.chat.id, "Ошибка: группа не выбрана.")
@@ -299,6 +303,9 @@ def show_day_schedule(call):
 
     else:
         bot.send_message(call.message.chat.id, "Ваша роль не определена. Пожалуйста, обратитесь к администратору.")
+
+
+
 
 
 
@@ -341,16 +348,14 @@ def show_GPA(message):
         return
 
     cursor = conn.cursor()
-    # cursor.execute("SELECT id_student FROM login WHERE login = %s", (name_student,))
-
     print(id_stud)
     cursor.execute(
-        '''SELECT ocenki.ocenka, teachers.FIO_teacher, ocenki.date 
+        '''SELECT teachers.nazvanie_predmeta,  teachers.FIO_teacher, AVG(ocenki.ocenka) as avg_score
            FROM ocenki 
            JOIN students ON students.id_student = ocenki.id_student 
            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
            WHERE students.id_student = %s 
-           ORDER BY ocenki.date''', (id_stud,)
+           GROUP BY teachers.nazvanie_predmeta, teachers.FIO_teacher''', (id_stud,)
     )
 
     rows = cursor.fetchall()
@@ -362,49 +367,33 @@ def show_GPA(message):
 
 
 
-    column_names = [desc[0] for desc in cursor.description]
-    grades=[]
+
+    count_s = 0
+    total_GPA = 0
+
 
     result = ""
     for row in rows:
-        ocenka, fio_teacher, date = row
-        if ocenka == 0:  # Пропускаем нулевые оценки
-            continue
-        row_dict = {column_names[i]: row[i] for i in range(len(row))}
-        result += f"Оценка: {row_dict['ocenka']}\nПреподаватель: {row_dict['fio_teacher']}\nДата: {row_dict['date']}\n\n"
+        nazvanie_predmeta, fio_teacher, avg_score = row
+        gpa = get_gpa_from_score(avg_score)
+        total_GPA+=gpa
+        count_s +=1
+        result += (f"Предмет: {nazvanie_predmeta}.\nПреподаватель: {fio_teacher}\n"
+                   f"Средняя оценка: {avg_score:.2f}\n"
+                   f"GPA: {gpa:.2f}\n\n")
 
-        ocenka_int= int(ocenka)
-        if ocenka_int > 0:  # Исключаем нулевые оценки
-            gpa = get_gpa_from_score(ocenka_int)
-            grades.append(gpa)
-
-
-
-
-
-
-
-    if grades:
-        gpa = sum(grades)/ len(grades)
-        result+= f"Ваш GPA: {gpa:.2f}"
+    if count_s > 0:
+            overall_gpa = total_GPA / count_s
+            result += f"Средний GPA по всем предметам: {overall_gpa:.2f}"
     else:
-        result+="Не удалость рассчитать GPA, так как нету оценок"
-    if result:
-        bot.send_message(message.chat.id, result)
-    else:
-        bot.send_message(message.chat.id, "Нет данных об оценках.")
+            result += "Нет оценок для расчета среднего GPA."
 
-
-
-
-
-
+    bot.send_message(message.chat.id, result)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Академическая успеваемость')
 def akadem(message):
-    global id_stud
-    # вы забыли найти айдишку и получали ошибку вместо цифры
+    print('a')
     conn = connect_to_db()
 
     if not conn:
@@ -413,55 +402,87 @@ def akadem(message):
 
     cursor = conn.cursor()
 
-
-
-
-
     cursor.execute(
-        '''SELECT ocenki.ocenka, teachers.FIO_teacher, ocenki.date 
-           FROM ocenki 
-           JOIN students ON students.id_student = ocenki.id_student 
-           JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
-           WHERE students.id_student = %s 
-           ORDER BY ocenki.date''', (id_stud,)
+        '''
+            SELECT DISTINCT teachers.nazvanie_predmeta 
+            FROM ocenki
+            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
+            JOIN students ON students.id_student = ocenki.id_student
+            WHERE students.id_student = %s;''', (id_stud,)
     )
+    print(id_stud)
 
-    rows = cursor.fetchall()
-    if not rows:
+    subjects = cursor.fetchall()
+    print(subjects)
+    if not subjects:
         bot.send_message(message.chat.id, "Нет данных об оценках.")
         cursor.close()
         conn.close()
         return
 
-    column_names = [desc[0] for desc in cursor.description]
-    grade_nul = []
-    gradess=[]
-    count =0
+    markup = types.InlineKeyboardMarkup()
+    buttons = [ types.InlineKeyboardButton(subject[0], callback_data= f"subject_{subject[0]}") for subject in subjects]
+    markup.add(*buttons)
+    # markup = types.InlineKeyboardMarkup()
+    # markup.row_width = 2
+    # markup.add(types.InlineKeyboardButton("Yes", callback_data="cb_yes"),
+    #                            types.InlineKeyboardButton("No", callback_data="cb_no"))
+    bot.send_message(
+        message.chat.id,
+        "Выберите предмет для просмотра успеваемости:",
+        reply_markup=markup
+    )
 
-    result = ""
-    for row in rows:
-        ocenka, fio_teacher, date = row
-        grade_nul.append(int(ocenka))
-        if ocenka > 0:  # Исключаем нулевые оценки
-            gradess.append(ocenka)
-        elif ocenka==0:
-            count+=1
-            result += f"Дата Н-ки: {date}\n"
-
-
-    if grade_nul:
-        cr = sum(grade_nul) / len(grade_nul)
-        crr = sum(gradess) / len(gradess)
-        result += f"Ваш средний бал: {cr:.2f} (учитывая Н-ки)\nКоличество Н-ок: {count}\n\nВаш средний бал: {crr:.2f} (не учитывая Н-ки)"
-
-    else:
-        result += "Нету оценок"
-    if result:
-        bot.send_message(message.chat.id, result)
-    else:
-        bot.send_message(message.chat.id, "Нет данных об оценках.")
+    cursor.close()
+    conn.close()
 
 
+@bot.callback_query_handler(func = lambda call: call.data.startswith("subject_"))
+def show_subject_ocenki(call):
+        subject = call.data.split("_")[1]
+        conn = connect_to_db()
+
+        if not conn:
+            bot.send_message(call.message.chat.id, "Ошибка подключения к базе данных.")
+            return
+
+        cursor = conn.cursor()
+
+        cursor.execute(
+            '''SELECT teachers.nazvanie_predmeta, teachers.fio_teacher, ocenki.ocenka, ocenki.date
+               FROM ocenki
+               JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
+               JOIN students ON students.id_student = ocenki.id_student
+               WHERE students.id_student = %s AND teachers.nazvanie_predmeta = %s
+               ORDER BY ocenki.date''',
+            (id_stud, subject)
+        )
+
+        rows = cursor.fetchall()
+        if not rows:
+            bot.send_message(call.message.chat.id, f"Нет данных об успеваемости по предмету {subject}.")
+            cursor.close()
+            conn.close()
+            return
+
+
+        count_z =0
+
+
+        result = f" Предмет: *{subject}*\n Преподаватель: *{rows[0][1]}*\nОценки:\n"
+        for row in rows:
+            ocenka, fio_teacher, date = row[2], row[1], row[3]
+            if ocenka >0:
+                result += f"   - Оценка: {ocenka}, дата: {date}\n"
+            elif ocenka ==0:
+                count_z+=1
+                result += f"   - Н-ка. {date}\n"
+        result+= f"\nКоличество Н-ок: {count_z}"
+
+        bot.send_message(call.message.chat.id, result, parse_mode="Markdown")
+
+        cursor.close()
+        conn.close()
 
 
 @bot.message_handler(func=lambda message: message.text == 'Документы')
@@ -474,7 +495,7 @@ def docs(message):
     bot.send_message(message.chat.id,"Выберите действие с документами", reply_markup=markup )
 
 
-@bot.callback_query_handler(func=lambda call: True)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("docs_"))
 def handle_callback(call):
     docum = None
     global id_stud
@@ -557,6 +578,7 @@ def save_file_db(stud, file_name, file_path):
 @bot.message_handler(func=lambda message: message.text == 'Рейтинг')
 def reiting(message):
     global id_stud
+    # вы забыли найти айдишку и получали ошибку вместо цифры
     conn = connect_to_db()
 
     if not conn:
@@ -579,6 +601,7 @@ def reiting(message):
         conn.close()
         return
 
+    # Словарь для хранения оценок студентов
     students_grades = {}
 
     for row in rows:
@@ -590,6 +613,7 @@ def reiting(message):
         if ocenka == 0:
             students_grades[id_student]["count_zeros"] += 1
 
+    # Вычисление среднего балла для каждого студента
     students_avg = []
     for student_id, data in students_grades.items():
         total_grades = sum(data["grades"])
@@ -597,8 +621,10 @@ def reiting(message):
         avg_grade = total_grades / total_count if total_count > 0 else 0
         students_avg.append({"id_student": student_id, "avg_grade": avg_grade, "count_zeros": data["count_zeros"]})
 
+    # Сортировка студентов по среднему баллу
     students_avg.sort(key=lambda x: x["avg_grade"], reverse=True)
 
+    # Формируем вывод
     result = ""
     for index, student in enumerate(students_avg):
         rank = index + 1
@@ -606,7 +632,7 @@ def reiting(message):
         count_zeros = student["count_zeros"]
         result += f"Место: {rank}.\nСредний балл: {avg_grade:.2f}.   Н-ок: {count_zeros}\n\n"
 
-    # Находим место студента
+    # Находим место текущего студента
     user_rank = next((index + 1 for index, student in enumerate(students_avg) if student["id_student"] == id_stud),None)
 
     if user_rank:
@@ -616,10 +642,463 @@ def reiting(message):
 
     bot.send_message(message.chat.id, result)
 
+
+
+
+
     cursor.close()
     conn.close()
 
+@bot.message_handler(func=lambda message: message.text == 'Переносы')
+def vvod(message):
+    global id_stud
+    global id_teach
+    if id_stud is not None:
+        bot.send_message(message.chat.id, "Этой функцией могут пользоваться только учителя.")
+    elif id_teach is not None:
+        conn = connect_to_db()
+        if not conn:
+            bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+            return
 
+        cursor = conn.cursor()
+
+        cursor.execute(
+            '''
+            select gruppy.nazvanie_gruppy from gruppy
+            join spec_teacher on spec_teacher.spec_id = gruppy.spec_id
+            where spec_teacher.teacher_id = %s
+            ''', (id_teach,)
+        )
+        rows = cursor.fetchall()
+        if not rows:
+            bot.send_message(message.chat.id, "Нет данных о группах.")
+            cursor.close()
+            conn.close()
+            return
+
+        markup = types.InlineKeyboardMarkup()
+        for row in rows:
+            nazvanie_gruppy = row[0]  # Извлекаем название группы из строки
+            print(nazvanie_gruppy)
+            button = types.InlineKeyboardButton(text=nazvanie_gruppy, callback_data=f"perenos_{nazvanie_gruppy}")
+            markup.add(button)
+
+
+        bot.send_message(message.chat.id, "Выберите группу:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("perenos_"))
+def choose_group_pzh(call):
+    print('a')
+    bot.answer_callback_query(call.id)
+    global user_data2
+    group_name = call.data.split("_")[1]
+    print(group_name)
+    if call.message.chat.id not in user_data2:
+        user_data2[call.message.chat.id] = {}
+    user_data2[call.message.chat.id]["group_name"] = group_name
+
+    bot.send_message(call.message.chat.id, "Напишите сообщение студентам")
+    user_data2[call.message.chat.id]["process_completed"] = False
+
+@bot.message_handler(func=lambda message: message.chat.id in user_data2 and "process_completed" in user_data2[message.chat.id] and not user_data2[message.chat.id]["process_completed"])
+def handle_group_message(message):
+    group_name= user_data2[message.chat.id]["group_name"]
+    conn = connect_to_db()
+    print(group_name)
+
+    cursor = conn.cursor()
+    cursor.execute(
+        '''
+        select id_gruppy from gruppy where nazvanie_gruppy = %s
+        ''', (group_name,)
+    )
+    group_id = cursor.fetchone()
+    if group_id:
+        group_id = group_id[0]  # Извлекаем id_gruppy из кортежа
+    else:
+        bot.send_message(message.chat.id, "Группа не найдена в базе данных.")
+        return
+    print(group_id)
+
+    cursor.execute(
+        '''
+        select fio_teacher from teachers where id_teacher = %s
+        ''', (id_teach,)
+    )
+    teacher_name = cursor.fetchone()  # Возвращает (fio_teacher,)
+    if teacher_name:
+        teacher_name = teacher_name[0]  # Извлекаем строку
+    else:
+        bot.send_message(message.chat.id, "Преподаватель не найден в базе данных.")
+        return
+    text_message = message.text
+
+
+    try:
+        cursor.execute(
+            '''
+            INSERT INTO reschedule (id_gruppy, text_message) 
+            VALUES (%s, %s)
+            ''',
+            (group_id, text_message)
+        )
+        conn.commit()
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Ошибка записи в базу данных: {e}")
+        cursor.close()
+        conn.close()
+        return
+
+    # Получаем список пользователей (учеников) из этой группы
+    try:
+        cursor.execute(
+            '''
+            select chat_id from student_chat_id where id_gruppy = %s
+            ''',
+            (group_id,)
+        )
+        students = cursor.fetchall()
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Ошибка получения списка студентов: {e}")
+        cursor.close()
+        conn.close()
+        return
+
+    cursor.close()
+    conn.close()
+
+    # Если нет зарегистрированных учеников
+    if not students:
+        bot.send_message(message.chat.id, "В этой группе нет зарегистрированных учеников.")
+        return
+
+    # Отправляем сообщение каждому ученику
+    for student in students:
+        student_id = student[0]  # Извлекаем user_id ученика
+        try:
+            bot.send_message(
+                student_id,
+                f"{teacher_name} отправил сообщение: {text_message}"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки сообщения пользователю {student_id}: {e}")
+
+    # Уведомляем учителя, что сообщения отправлены
+    bot.send_message(message.chat.id, "Сообщение отправлено всем ученикам группы.")
+    user_data2[message.chat.id]["process_completed"] = True
+
+
+@bot.message_handler(func=lambda message: message.text == 'Ввод оценок и Н-ок' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
+def teacher_menu(message):
+    if message.chat.id not in user_data:
+        user_data[message.chat.id] = {}
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(
+        types.KeyboardButton('Выставить оценку'),
+        types.KeyboardButton('Отметить пропуск'),
+        types.KeyboardButton('Назад')
+    )
+    bot.send_message(message.chat.id, "Выберите действие:", reply_markup=markup)
+
+# Обработка выставления оценки
+@bot.message_handler(func=lambda message: message.text == 'Выставить оценку' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
+def ask_student_for_grade(message):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if message.chat.id not in user_data:
+        user_data[message.chat.id] = {}
+    # Получаем список студентов из базы данных
+    conn = connect_to_db()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT students.id_student, students.fio
+            FROM spec_teacher
+            JOIN gruppy ON gruppy.spec_id = spec_teacher.spec_id
+            JOIN students ON students.id_gruppy = gruppy.id_gruppy
+            WHERE spec_teacher.teacher_id = %s
+        ''', (id_teach,))
+
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if students:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for student in students:
+                student_id, fio = student
+                button = types.InlineKeyboardButton(text=fio, callback_data=f"select_student_grade_{student_id}")
+                markup.add(button)
+            bot.send_message(message.chat.id, "Выберите студента из списка:", reply_markup=markup)
+            user_data[message.chat.id]["step"] = "selecting_student_for_grade"
+        else:
+            bot.send_message(message.chat.id, "Список студентов пуст.")
+    else:
+        bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+
+# Обработка выбора студента для оценки
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_student_grade_"))
+def receive_student_for_grade(call):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if call.message.chat.id not in user_data:
+        user_data[call.message.chat.id] = {}
+    student_id = int(call.data.split("_")[-1])
+    user_data[call.message.chat.id]["student_id_for_grade"] = student_id
+    bot.send_message(call.message.chat.id, "Введите дату в формате ДД.ММ.ГГГГ:")
+    user_data[call.message.chat.id]["step"] = "awaiting_grade_date"
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "awaiting_grade_date")
+def receive_grade_date(message):
+    date_text = message.text.strip()
+    try:
+        date_obj = datetime.datetime.strptime(date_text, "%d.%m.%Y").date()
+        user_data[message.chat.id]["grade_date"] = date_obj
+        bot.send_message(message.chat.id, "Введите оценку (от 0 до 100):")
+        user_data[message.chat.id]["step"] = "awaiting_grade_value"
+    except ValueError:
+        bot.send_message(message.chat.id, "Неверный формат даты. Пожалуйста, введите дату в формате ДД.ММ.ГГГГ.")
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "awaiting_grade_value")
+def receive_grade_value(message):
+    try:
+        grade = int(message.text.strip())
+        if 0 <= grade <= 100:
+            student_id = user_data[message.chat.id]["student_id_for_grade"]
+            teacher_id = user_data[message.chat.id].get("id_teacher")
+            grade_date = user_data[message.chat.id]["grade_date"]
+            conn = connect_to_db()
+            if not conn:
+                bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+                return
+            cursor = conn.cursor()
+
+            # Проверяем, есть ли уже оценка для этого студента на указанную дату
+            cursor.execute(
+                "SELECT ocenka FROM ocenki WHERE id_student = %s AND id_teacher = %s AND date = %s",
+                (student_id, teacher_id, grade_date)
+            )
+            existing_grade = cursor.fetchone()
+
+            if existing_grade:
+                existing_grade_value = existing_grade[0]
+                # Используем инлайн-кнопки для подтверждения
+                markup = types.InlineKeyboardMarkup(row_width=2)
+                markup.add(
+                    types.InlineKeyboardButton("Да", callback_data="confirm_update_grade_yes"),
+                    types.InlineKeyboardButton("Нет", callback_data="confirm_update_grade_no")
+                )
+                bot.send_message(
+                    message.chat.id,
+                    f"У этого студента уже есть оценка на дату {grade_date.strftime('%d.%m.%Y')}: {existing_grade_value}.\nХотите обновить ее?",
+                    reply_markup=markup
+                )
+                user_data[message.chat.id]["step"] = "confirming_update_grade"
+                user_data[message.chat.id]["new_grade"] = grade
+            else:
+                # Вставляем новую оценку
+                cursor.execute(
+                    "INSERT INTO ocenki (id_student, id_teacher, ocenka, date) VALUES (%s, %s, %s, %s)",
+                    (student_id, teacher_id, grade, grade_date)
+                )
+                conn.commit()
+                bot.send_message(message.chat.id, "Оценка успешно сохранена.")
+                user_data[message.chat.id]["step"] = "authenticated"
+
+            cursor.close()
+            conn.close()
+        else:
+            bot.send_message(message.chat.id, "Введите корректную оценку от 0 до 100.")
+    except ValueError:
+        bot.send_message(message.chat.id, "Введите числовое значение для оценки.")
+
+# Обработка подтверждения обновления оценки
+@bot.callback_query_handler(func=lambda call: call.data in ["confirm_update_grade_yes", "confirm_update_grade_no"])
+def confirm_update_grade(call):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if call.message.chat.id not in user_data:
+        user_data[call.message.chat.id] = {}
+    if call.data == "confirm_update_grade_yes":
+        student_id = user_data[call.message.chat.id]["student_id_for_grade"]
+        teacher_id = user_data[call.message.chat.id].get("id_teacher")
+        new_grade = user_data[call.message.chat.id]["new_grade"]
+        grade_date = user_data[call.message.chat.id]["grade_date"]
+        conn = connect_to_db()
+        if not conn:
+            bot.send_message(call.message.chat.id, "Ошибка подключения к базе данных.")
+            return
+        cursor = conn.cursor()
+
+        # Обновляем существующую оценку
+        cursor.execute(
+            "UPDATE ocenki SET ocenka = %s WHERE id_student = %s AND id_teacher = %s AND date = %s",
+            (new_grade, student_id, teacher_id, grade_date)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        bot.send_message(call.message.chat.id, "Оценка успешно обновлена.")
+        user_data[call.message.chat.id]["step"] = "authenticated"
+    elif call.data == "confirm_update_grade_no":
+        bot.send_message(call.message.chat.id, "Операция отменена. Оценка не была изменена.")
+        user_data[call.message.chat.id]["step"] = "authenticated"
+
+# Обработка отметки пропуска (Н-ки)
+@bot.message_handler(func=lambda message: message.text == 'Отметить пропуск' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
+def ask_student_for_absence(message):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if message.chat.id not in user_data:
+        user_data[message.chat.id] = {}
+    # Получаем список студентов из базы данных
+    conn = connect_to_db()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT students.id_student, students.fio
+            FROM spec_teacher
+            JOIN gruppy ON gruppy.spec_id = spec_teacher.spec_id
+            JOIN students ON students.id_gruppy = gruppy.id_gruppy
+            WHERE spec_teacher.teacher_id = %s
+        ''', (id_teach,))
+
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if students:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for student in students:
+                student_id, fio = student
+                button = types.InlineKeyboardButton(text=fio, callback_data=f"select_student_absence_{student_id}")
+                markup.add(button)
+            bot.send_message(message.chat.id, "Выберите студента из списка:", reply_markup=markup)
+            user_data[message.chat.id]["step"] = "selecting_student_for_absence"
+        else:
+            bot.send_message(message.chat.id, "Список студентов пуст.")
+    else:
+        bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+
+# Обработка выбора студента для пропуска
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_student_absence_"))
+def receive_student_for_absence(call):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if call.message.chat.id not in user_data:
+        user_data[call.message.chat.id] = {}
+    student_id = int(call.data.split("_")[-1])
+    user_data[call.message.chat.id]["student_id_for_absence"] = student_id
+    bot.send_message(call.message.chat.id, "Введите дату в формате ДД.ММ.ГГГГ:")
+    user_data[call.message.chat.id]["step"] = "awaiting_absence_date"
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "awaiting_absence_date")
+def receive_absence_date(message):
+    date_text = message.text.strip()
+    try:
+        date_obj = datetime.datetime.strptime(date_text, "%d.%m.%Y").date()
+        user_data[message.chat.id]["absence_date"] = date_obj
+        student_id = user_data[message.chat.id]["student_id_for_absence"]
+        teacher_id = user_data[message.chat.id].get("id_teacher")
+        conn = connect_to_db()
+        if not conn:
+            bot.send_message(message.chat.id, "Ошибка подключения к базе данных.")
+            return
+        cursor = conn.cursor()
+
+        # Проверяем, есть ли уже оценка для этого студента на указанную дату
+        cursor.execute(
+            "SELECT ocenka FROM ocenki WHERE id_student = %s AND id_teacher = %s AND date = %s",
+            (student_id, teacher_id, date_obj)
+        )
+        existing_grade = cursor.fetchone()
+
+        if existing_grade:
+            existing_grade_value = existing_grade[0]
+            # Используем инлайн-кнопки для подтверждения
+            markup = types.InlineKeyboardMarkup(row_width=2)
+            markup.add(
+                types.InlineKeyboardButton("Да", callback_data="confirm_update_absence_yes"),
+                types.InlineKeyboardButton("Нет", callback_data="confirm_update_absence_no")
+            )
+            bot.send_message(
+                message.chat.id,
+                f"У этого студента уже есть оценка на дату {date_obj.strftime('%d.%m.%Y')}: {existing_grade_value}.\nХотите обновить ее на Н-ку?",
+                reply_markup=markup
+            )
+            user_data[message.chat.id]["step"] = "confirming_update_absence"
+        else:
+            # Вставляем Н-ку
+            cursor.execute(
+                "INSERT INTO ocenki (id_student, id_teacher, ocenka, date) VALUES (%s, %s, %s, %s)",
+                (student_id, teacher_id, 0, date_obj)
+            )
+            conn.commit()
+            bot.send_message(message.chat.id, "Пропуск успешно отмечен.")
+            user_data[message.chat.id]["step"] = "authenticated"
+
+        cursor.close()
+        conn.close()
+    except ValueError:
+        bot.send_message(message.chat.id, "Неверный формат даты. Пожалуйста, введите дату в формате ДД.ММ.ГГГГ.")
+
+# Обработка подтверждения обновления пропуска
+@bot.callback_query_handler(func=lambda call: call.data in ["confirm_update_absence_yes", "confirm_update_absence_no"])
+def confirm_update_absence(call):
+    # Инициализируем user_data для данного chat.id, если это необходимо
+    if call.message.chat.id not in user_data:
+        user_data[call.message.chat.id] = {}
+    if call.data == "confirm_update_absence_yes":
+        student_id = user_data[call.message.chat.id]["student_id_for_absence"]
+        teacher_id = user_data[call.message.chat.id].get("id_teacher")
+        absence_date = user_data[call.message.chat.id]["absence_date"]
+        conn = connect_to_db()
+        if not conn:
+            bot.send_message(call.message.chat.id, "Ошибка подключения к базе данных.")
+            return
+        cursor = conn.cursor()
+
+        # Обновляем оценку на Н-ку
+        cursor.execute(
+            "UPDATE ocenki SET ocenka = %s WHERE id_student = %s AND id_teacher = %s AND date = %s",
+            (0, student_id, teacher_id, absence_date)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        bot.send_message(call.message.chat.id, "Оценка успешно обновлена на Н-ку.")
+        user_data[call.message.chat.id]["step"] = "authenticated"
+    elif call.data == "confirm_update_absence_no":
+        bot.send_message(call.message.chat.id, "Операция отменена. Оценка не была изменена.")
+        user_data[call.message.chat.id]["step"] = "authenticated"
+
+@bot.message_handler(func=lambda message: message.text == 'Назад')
+def go_back(message):
+    if message.chat.id not in user_data:
+        user_data[message.chat.id] = {}
+    user_data[message.chat.id]["step"] = "authenticated"
+    # Отправляем главное меню в зависимости от роли
+    role = user_data[message.chat.id].get("role")
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    if role == STUDENT_R:
+        markup.add(
+            types.KeyboardButton('Академическая успеваемость'),
+            types.KeyboardButton('Оценки и GPA'),
+            types.KeyboardButton('Расписание'),
+            types.KeyboardButton('Рейтинг'),
+            types.KeyboardButton('Документы'),
+            types.KeyboardButton('Оплата за учёбу')
+        )
+    elif role == TEACHER_R:
+        markup.add(
+            types.KeyboardButton('Расписание'),
+            types.KeyboardButton('Переносы'),
+            types.KeyboardButton('Ввод оценок и Н-ок')
+        )
+    else:
+        # Если роль не определена, просим пользователя начать заново
+        bot.send_message(message.chat.id, "Пожалуйста, введите /start для начала работы с ботом.")
+        return
+    bot.send_message(message.chat.id, "Вы вернулись в главное меню.", reply_markup=markup)
 
 
 
