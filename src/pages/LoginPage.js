@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './login.css';
 
-function LoginPage({ setIsLoggedIn, setUserRole }) { // Добавляем setUserRole
+function LoginPage({ setIsLoggedIn, setUserRole }) { 
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

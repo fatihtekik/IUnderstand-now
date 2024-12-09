@@ -6,29 +6,32 @@ import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
 import GradesPage from './pages/GradesPage';
 import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
+import ProfilePage from './pages/ProfilePage'
 import ManageGradesPage from './pages/ManageGradesPage';
 import './App.css';
 
 function App() {
+  
   const [isLoggedIn, setIsLoggedIn] = useState(
     () => localStorage.getItem('isLoggedIn') === 'true'
   );
   const [userRole, setUserRole] = useState(
-    () => localStorage.getItem('userRole') || 'student' // По умолчанию 'student'
+    () => localStorage.getItem('userRole') || 'student' 
   );
 
   const handleLogout = () => {
     console.log('handleLogout called');
     setIsLoggedIn(false);
-    setUserRole('student'); // Сбрасываем роль на 'student'
+    setUserRole('student');
     localStorage.setItem('isLoggedIn', 'false');
     localStorage.removeItem('id_student');
-    localStorage.removeItem('userRole'); // Удаляем роль из localStorage
+    localStorage.removeItem('userRole');
     console.log('User logged out');
+    
   };
 
   useEffect(() => {
+    console.log('ProfilePage:', ProfilePage);
     console.log('App.js: isLoggedIn =', isLoggedIn, 'userRole =', userRole);
   }, [isLoggedIn, userRole]);
 

@@ -1,3 +1,5 @@
+// src/pages/GradesPage.js
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './GradesPage.css';
@@ -23,30 +25,54 @@ function GradesPage() {
   const [viewMode, setViewMode] = useState('all');
   const [subjectFilter, setSubjectFilter] = useState('');
   const [subjectAverages, setSubjectAverages] = useState([]); // Средние значения по предметам
+  const [isLoading, setIsLoading] = useState(false); // Состояние загрузки
+  const [error, setError] = useState(null); // Состояние ошибки
   const navigate = useNavigate();
 
   const currentStudentId = Number(localStorage.getItem('id_student'));
 
+  // Загрузка данных для режима 'subject'
   useEffect(() => {
     if (viewMode === 'subject' && currentStudentId) {
+      setIsLoading(true); // Начало загрузки
+      setError(null); // Сброс ошибки
       fetch(`http://localhost:5000/api/dataById?id_student=${currentStudentId}`)
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Сетевая ошибка');
+          }
+          return response.json();
+        })
         .then((fetchedData) => {
           const dataWithGPA = fetchedData.map((item) => ({
             ...item,
             gpa: getGPAFromScore(item.ocenka),
           }));
           setData(dataWithGPA);
+          setIsLoading(false); // Завершение загрузки
         })
-        .catch((error) => console.error('Ошибка при загрузке данных:', error));
+        .catch((error) => {
+          console.error('Ошибка при загрузке данных:', error);
+          setError('Не удалось загрузить оценки. Попробуйте позже.');
+          setIsLoading(false); // Завершение загрузки при ошибке
+        });
     }
   }, [viewMode, currentStudentId]);
+
+  // Загрузка данных для режима 'all'
   useEffect(() => {
     if (!currentStudentId) {
       navigate('/login'); // Если ID студента отсутствует
     } else if (viewMode === 'all') {
+      setIsLoading(true); // Начало загрузки
+      setError(null); // Сброс ошибки
       fetch('http://localhost:5000/api/data')
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Сетевая ошибка');
+          }
+          return response.json();
+        })
         .then((fetchedData) => {
           const dataWithGPA = fetchedData.map((item) => ({
             ...item,
@@ -54,8 +80,13 @@ function GradesPage() {
           }));
           setAllData(dataWithGPA);
           setData(dataWithGPA);
+          setIsLoading(false); // Завершение загрузки
         })
-        .catch((error) => console.error('Ошибка при загрузке данных:', error));
+        .catch((error) => {
+          console.error('Ошибка при загрузке данных:', error);
+          setError('Не удалось загрузить оценки. Попробуйте позже.');
+          setIsLoading(false); // Завершение загрузки при ошибке
+        });
     }
   }, [currentStudentId, navigate, viewMode]);
 
@@ -106,8 +137,16 @@ function GradesPage() {
         <button onClick={handleLogout}>Выйти</button>
       </div>
 
+      {/* Индикатор загрузки */}
+      {isLoading && (
+        <div className="loader"></div> // Используем спиннер
+      )}
+
+      {/* Сообщение об ошибке */}
+      {error && <p className="error-message">{error}</p>}
+
       {/* Режим: Все оценки */}
-      {viewMode === 'all' && (
+      {!isLoading && !error && viewMode === 'all' && (
         <table className="grades-page-table">
           <thead>
             <tr>
@@ -131,7 +170,7 @@ function GradesPage() {
       )}
 
       {/* Режим: Оценки по предмету */}
-      {viewMode === 'subject' && (
+      {!isLoading && !error && viewMode === 'subject' && (
         <div>
           <label htmlFor="subject">Выберите предмет:</label>
           <select
@@ -174,55 +213,53 @@ function GradesPage() {
       )}
 
       {/* Режим: GPA */}
-      {/* Режим: GPA */}
-{viewMode === 'gpa' && (
-  <div>
-    <h2>Средние оценки и GPA по предметам</h2>
-    <table className="grades-page-table">
-      <thead>
-        <tr>
-          <th>Предмет</th>
-          <th>Средняя оценка</th>
-          <th>Средний GPA</th>
-        </tr>
-      </thead>
-      <tbody>
-        {subjectAverages.map((subject, index) => (
-          <tr key={index}>
-            <td>{subject.subject}</td>
-            <td>{subject.averageScore}</td>
-            <td>{subject.gpa}</td>
-          </tr>
-        ))}
-        {/* Итоговая строка */}
-        <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f1f1' }}>
-          <td>Итог</td>
-          <td>
-            {subjectAverages.length > 0
-              ? (
-                  subjectAverages.reduce(
-                    (sum, subj) => sum + parseFloat(subj.averageScore),
-                    0
-                  ) / subjectAverages.length
-                ).toFixed(2)
-              : 'Нет данных'}
-          </td>
-          <td>
-            {subjectAverages.length > 0
-              ? (
-                  subjectAverages.reduce(
-                    (sum, subj) => sum + parseFloat(subj.gpa),
-                    0
-                  ) / subjectAverages.length
-                ).toFixed(2)
-              : 'Нет данных'}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-)}
-
+      {!isLoading && !error && viewMode === 'gpa' && (
+        <div>
+          <h2>Средние оценки и GPA по предметам</h2>
+          <table className="grades-page-table">
+            <thead>
+              <tr>
+                <th>Предмет</th>
+                <th>Средняя оценка</th>
+                <th>Средний GPA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subjectAverages.map((subject, index) => (
+                <tr key={index}>
+                  <td>{subject.subject}</td>
+                  <td>{subject.averageScore}</td>
+                  <td>{subject.gpa}</td>
+                </tr>
+              ))}
+              {/* Итоговая строка */}
+              <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f1f1' }}>
+                <td>Итог</td>
+                <td>
+                  {subjectAverages.length > 0
+                    ? (
+                        subjectAverages.reduce(
+                          (sum, subj) => sum + parseFloat(subj.averageScore),
+                          0
+                        ) / subjectAverages.length
+                      ).toFixed(2)
+                    : 'Нет данных'}
+                </td>
+                <td>
+                  {subjectAverages.length > 0
+                    ? (
+                        subjectAverages.reduce(
+                          (sum, subj) => sum + parseFloat(subj.gpa),
+                          0
+                        ) / subjectAverages.length
+                      ).toFixed(2)
+                    : 'Нет данных'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,10 +3,11 @@ from flask_cors import CORS
 import psycopg2
 import json
 from datetime import date, datetime
-
+def newSEmestr(year,semestr):
+    print(f"{semestr} этого {year}")
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
-
+newSEmestr(2024,1)
 def get_db_connection():
     connection = psycopg2.connect(
         host="localhost",
@@ -28,26 +29,63 @@ def home():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """Endpoint для авторизации пользователей."""
+    """Endpoint для авторизации пользователей с поддержкой ролей."""
     try:
         data = request.get_json()
         login = data.get('login')
         password = data.get('password')
 
+        # Проверка наличия логина и пароля
+        if not login or not password:
+            return jsonify({"error": "Необходимо указать логин и пароль"}), 400
+
         connection = get_db_connection()
         cursor = connection.cursor()
+
+        # Сначала проверяем таблицу студентов
         cursor.execute(
             'SELECT id_user, id_student FROM login WHERE login = %s AND password = %s',
             (login, password)
         )
-        user = cursor.fetchone()
+        student = cursor.fetchone()
 
-        if not user:
-            return Response(json.dumps({"error": "Неверный логин или пароль"}), status=401, mimetype='application/json')
+        if student:
+            id_user, id_student = student
+            response_data = {
+                "id_user": id_user,
+                "id_student": id_student,
+                "role": "student"
+            }
+            return Response(json.dumps(response_data), mimetype='application/json'), 200
 
-        return Response(json.dumps({"id_user": user[0], "id_student": user[1]}), mimetype='application/json')
+        # Если не найдено среди студентов, проверяем таблицу преподавателей
+        cursor.execute(
+            'SELECT id_teacher FROM teacher_login WHERE login = %s AND password = %s',
+            (login, password)
+        )
+        teacher = cursor.fetchone()
+
+        if teacher:
+            id_teacher = teacher[0]
+            response_data = {
+                "id_user": id_teacher,
+                "role": "teacher"
+            }
+            return Response(json.dumps(response_data), mimetype='application/json'), 200
+
+        # Если не найдено ни в одной таблице
+        return Response(json.dumps({"error": "Неверный логин или пароль"}), status=401, mimetype='application/json')
+
     except Exception as e:
+        # Логирование ошибки на сервере (можно расширить для полноценного логирования)
+        print(f"Ошибка при авторизации: {e}")
         return Response(json.dumps({"error": str(e)}), status=500, mimetype='application/json')
+    finally:
+        try:
+            cursor.close()
+            connection.close()
+        except:
+            pass
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
@@ -188,7 +226,7 @@ def get_all_grades():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Эндпоинт для редактирования оценки
+
 @app.route('/api/grades/<int:id_ocenki>', methods=['PUT'])
 def edit_grade(id_ocenki):
     try:
@@ -200,8 +238,10 @@ def edit_grade(id_ocenki):
 
         connection = get_db_connection()
         cursor = connection.cursor()
+
+        # Обновление оценки
         cursor.execute(
-            "UPDATE ocenki SET ocenka = %s WHERE id_ocenki = %s RETURNING *",
+            "UPDATE ocenki SET ocenka = %s WHERE id_ocenki = %s RETURNING id_ocenki, ocenka, id_student, id_teacher, date",
             (new_grade, id_ocenki)
         )
         updated_grade = cursor.fetchone()
@@ -212,11 +252,27 @@ def edit_grade(id_ocenki):
             return jsonify({"error": "Оценка не найдена"}), 404
 
         connection.commit()
+
+        # Получение полной информации об обновлённой оценке
+        cursor.execute('''
+            SELECT 
+                ocenki.id_ocenki, 
+                ocenki.ocenka, 
+                students.FIO AS student_fio, 
+                teachers.nazvanie_predmeta, 
+                ocenki.date 
+            FROM ocenki 
+            JOIN students ON students.id_student = ocenki.id_student 
+            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
+            WHERE ocenki.id_ocenki = %s
+        ''', (id_ocenki,))
+        full_grade = cursor.fetchone()
+
         cursor.close()
         connection.close()
 
         column_names = [desc[0] for desc in cursor.description]
-        grade_dict = dict(zip(column_names, updated_grade))
+        grade_dict = dict(zip(column_names, full_grade))
 
         return jsonify(grade_dict), 200
     except Exception as e:
@@ -246,5 +302,4 @@ def delete_grade(id_ocenki):
 
 if __name__ == '__main__':
     app.run(debug=True)
-if __name__ == '__main__':
-    app.run(debug=True)
+

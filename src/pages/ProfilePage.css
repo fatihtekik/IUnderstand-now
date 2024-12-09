@@ -1,7 +1,6 @@
 /* Общий стиль страницы */
 .profile-page {
   display: flex;
-  background-color: #002b5c;
   color: #ffffff;
   height: 100vh;
   font-family: 'Arial', sans-serif;
@@ -11,7 +10,7 @@
 .profile-container {
   margin: auto;
   padding: 20px;
-  background-color: #003366;
+  background-color: #004085;
   border-radius: 10px;
   width: 60%;
   max-width: 900px;
@@ -51,7 +50,7 @@
 }
 
 .profile-section {
-  background-color: #002b5c;
+  background-color: #87cefa70;
   padding: 15px;
   border-radius: 8px;
   flex: 1;
