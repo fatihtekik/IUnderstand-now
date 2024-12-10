@@ -370,7 +370,6 @@ def akadem(message):
         return
 
     markup = types.InlineKeyboardMarkup()
-    print(subjects)
     buttons = [types.InlineKeyboardButton(subject[0], callback_data=f"subject_{subject[0]}") for subject in subjects]
     markup.add(*buttons)
     bot.send_message(chat_id, "Выберите предмет для просмотра успеваемости:", reply_markup=markup)
@@ -779,7 +778,7 @@ def receive_grade_value(message):
                 )
                 bot.send_message(
                     chat_id,
-                    f"У этого студента уже есть оценка на {grade_date.strftime('%d.%m.%Y')}: {existing_grade[0]}.\nОбновить ее?",
+                    f"У этого студента уже есть оценка на {grade_date.strftime('%d.%m.%Y')}: {existing_grade[0]}.\nОбновить её?",
                     reply_markup=markup
                 )
                 user_data[chat_id]["step"] = "confirming_update_grade"
@@ -791,7 +790,21 @@ def receive_grade_value(message):
                     (student_id, id_teach, grade, grade_date)
                 )
                 conn.commit()
-                bot.send_message(chat_id, "Оценка успешно сохранена.")
+
+                # Уведомляем студента о новой оценке
+                cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_student = %s", (student_id,))
+                student_chat_id = cursor.fetchone()
+                if student_chat_id:
+                    student_chat_id = student_chat_id[0]
+                    cursor.execute("SELECT fio_teacher FROM teachers WHERE id_teacher = %s", (id_teach,))
+                    teacher_fio = cursor.fetchone()
+                    teacher_fio = teacher_fio[0] if teacher_fio else "Преподаватель"
+                    bot.send_message(
+                        student_chat_id,
+                        f"Вам выставлена новая оценка {grade} от преподавателя {teacher_fio} на дату {grade_date.strftime('%d.%m.%Y')}."
+                    )
+
+                bot.send_message(chat_id, "Оценка успешно сохранена и студент уведомлён.")
                 user_data[chat_id]["step"] = "authenticated"
             cursor.close()
             conn.close()
@@ -799,6 +812,7 @@ def receive_grade_value(message):
             bot.send_message(chat_id, "Введите корректную оценку от 0 до 100.")
     except ValueError:
         bot.send_message(chat_id, "Введите числовое значение для оценки.")
+
 
 @bot.callback_query_handler(func=lambda call: call.data in ["confirm_update_grade_yes", "confirm_update_grade_no"])
 def confirm_update_grade(call):
