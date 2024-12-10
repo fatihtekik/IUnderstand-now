@@ -1,14 +1,118 @@
-create schema skating_school;
-drop schema skating_school;
+CREATE SCHEMA zhuldyzdar;
+DROP SCHEMA zhuldyzdar CASCADE;
 
+-- 1. Таблица категорий (зависимости отсутствуют)
+CREATE TABLE category (
+    id_category INT PRIMARY KEY,
+    category_name VARCHAR(100)
+);
+
+-- 2. Таблица тренеров (зависимости отсутствуют)
+CREATE TABLE coach (
+    coach_id INT PRIMARY KEY,
+    coach_name VARCHAR(100)
+);
+
+-- 3. Таблица групп (зависимости от категорий и тренеров)
+CREATE TABLE groups (
+    group_id INT PRIMARY KEY,
+    id_category INT,
+    coach_id INT,
+    FOREIGN KEY (id_category) REFERENCES category(id_category),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+
+-- 4. Таблица студентов (зависимость от групп)
 CREATE TABLE skating_students (
     skate_student_id INT PRIMARY KEY,
     fullname VARCHAR(100),
     birthday DATE,
-	group_id int,
-	foreign key (group_id) references groups(group_id)
+    group_id INT,
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
 );
 
+
+
+
+-- 5. Таблица входа тренеров (зависимость от тренеров)
+CREATE TABLE coach_login (
+    coach_login_id INT PRIMARY KEY,
+    coach_id INT, 
+    coach_login VARCHAR(100),
+    coach_password VARCHAR(100),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+
+-- 6. Таблица входа студентов (зависимость от студентов)
+CREATE TABLE stud_login (
+    stud_login_id INT PRIMARY KEY,
+    skate_student_id INT,
+    stud_login VARCHAR(100),
+    stud_password VARCHAR(100),
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id)
+);
+
+-- 7. Таблица чата студентов (зависимость от студентов и групп)
+CREATE TABLE stud_chat (
+    stud_chat_id SERIAL PRIMARY KEY,
+    skate_student_id INT, 
+    group_id INT,
+    skate_chat_id INT,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
+);
+
+-- 8. Таблица расписания (зависимость от групп)
+CREATE TABLE skate_rescheldue (
+    reschedule_id SERIAL PRIMARY KEY,
+    group_id INT,
+    text_message TEXT,
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
+);
+
+-- 9. Таблица посещаемости (зависимость от студентов и тренеров)
+CREATE TABLE attendance (
+    attendance_id SERIAL PRIMARY KEY,
+    attendance VARCHAR(1),
+    skate_student_id INT,
+    coach_id INT,
+    date DATE,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+-- 10. Таблица документов (зависимость от студентов)
+CREATE TABLE docs (
+    document_id SERIAL PRIMARY KEY,
+    skate_student_id INT,
+    name_file VARCHAR(255),
+    path_file TEXT,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id)
+);
+
+-- 11. Таблица ролей (зависимость от студентов и тренеров)
+CREATE TABLE roles (
+    role_id INT PRIMARY KEY,
+    skate_student_id INT,
+    coach_id INT,
+    role VARCHAR(30),
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+INSERT INTO category (id_category, category_name) VALUES
+(1, 'Старшая'),
+(2, 'Средняя'),
+(3, 'Младшая');
+INSERT INTO coach (coach_id, coach_name) VALUES
+(1, 'Ясмин'),
+(2, 'Майя'),
+(3, 'Фатих'),
+(4, 'Салима');
+
+INSERT INTO groups (group_id, id_category, coach_id) VALUES
+(1, 1, 1),
+(2, 2, 2),
+(3, 3, 3),
+(4, 3, 4);
 INSERT INTO skating_students (skate_student_id, fullname, birthday, group_id) VALUES
 (1, 'Адема Мурзанова', '2017-09-25', 1),
 (2, 'Амина Бектурганова', '2018-01-13', 1),
@@ -52,64 +156,6 @@ INSERT INTO skating_students (skate_student_id, fullname, birthday, group_id) VA
 (40, 'Альма Садыкова', '2021-04-04', 4),
 (41, 'Дания Ерлан', '2020-01-28', 2);
 
-drop table coach cascade;
-create table coach(
-	coach_id int PRIMARY KEY,
-	coach_name VARCHAR(100)
-);
-
-insert into coach(coach_id, coach_name) values
-(1, 'Ясмин'),
-(2, 'Майя'),
-(3, 'Фатих'),
-(4, 'Салима');
-
-create table groups(
-	group_id INT PRIMARY KEY,
-	id_category int,
-	coach_id int,
-	foreign key (id_category) references category(id_category),
-	foreign key (coach_id) references coach(coach_id)
-);
-
-drop table groups cascade;
-insert into groups(group_id, id_category, coach_id) values
-(1, 1, 1),
-(2, 2, 2),
-(3, 3, 3),
-(4, 3, 4);
-
-create table category(
-	id_category int PRIMARY KEY,
-	category_name VARCHAR(100)
-);
-
-insert into category(id_category, category_name) values
-(1, 'Старшая'),
-(2, 'Средняя'),
-(3, 'Младшая');
-
-create table coach_login(
-	coach_login_id int PRIMARY KEY,
-	coach_id INT, 
-	coach_login VARCHAR(100),
-	coach_password VARCHAR(100),
-	foreign key(coach_id) references coach(coach_id)
-);
-
-insert into coach_login(coach_login_id, coach_id, coach_login, coach_password) values
-(1, 1, 'Yasmin_coach1', 'yasmin_t'),
-(2, 2, 'Maya_coach2', 'maya_1'),
-(3, 3, 'Fatih_coach3', 'fatkik'),
-(4, 4, 'Salima_coach4', 'salima_a');
-
-create table stud_login(
-	stud_login_id int PRIMARY KEY,
-	skate_student_id int,
-	stud_login VARCHAR(100),
-	stud_password VARCHAR(100),
-	foreign key(skate_student_id) references skating_students(skate_student_id)
-);
 
 INSERT INTO stud_login (stud_login_id, skate_student_id, stud_login, stud_password) VALUES
 (1, 1, 'adema_murz_1', 'adema_1'),
@@ -153,52 +199,7 @@ INSERT INTO stud_login (stud_login_id, skate_student_id, stud_login, stud_passwo
 (39, 39, 'radmila_dyy_39', 'radmila_39'),
 (40, 40, 'alma_sadyk_40', 'alma_40'),
 (41, 41, 'daniya_erlan_41', 'daniya_41');
-
-
-create table stud_chat(
-	stud_chat_id SERIAL PRIMARY KEY,
-	skate_student_id int, 
-	group_id int,
-	skate_chat_id int,
-	foreign key (skate_student_id) references skating_students(skate_student_id),
-	foreign key (group_id) references groups(group_id)
-);
-
-create table skate_rescheldue(
-	reschedule_id SERIAL PRIMARY KEY,
-	group_id int,
-	text_message TEXT,
-	foreign key (group_id) references groups(group_id)
-);
-
-create table attendance(
-	attendance_id SERIAL PRIMARY KEY,
-	attendance VARCHAR(1),
-	skate_student_id int,
-	coach_id int,
-	date DATE,
-	foreign key(skate_student_id) references skating_students(skate_student_id),
-	foreign key(coach_id) references coach(coach_id)
-);
-
-create table docs(
-	document_id SERIAL PRIMARY KEY,
-	skate_student_id int,
-	name_file VARCHAR(255),
-	path_file TEXT,
-	foreign key(skate_student_id) references skating_students(skate_student_id)
-);
-
-create table roles(
-	role_id int primary key,
-	skate_student_id int,
-	coach_id int,
-	role VARCHAR(30),
-	foreign key(skate_student_id) references skating_students(skate_student_id),
-	foreign key(coach_id) references coach(coach_id)
-);
-
-insert into roles(role_id, skate_student_id, coach_id, role) values
+INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
 (1, 1, null, 'student'),
 (2, 2, null, 'student'),
 (3, 3, null, 'student'),
@@ -244,17 +245,9 @@ insert into roles(role_id, skate_student_id, coach_id, role) values
 (43, null, 2, 'coach'),
 (44, null, 3, 'coach'),
 (45, null, 4, 'coach');
-
-select * from roles;
-select * from docs;
-select * from attendance;
-select * from skate_rescheldue;
-select * from stud_chat;
-select * from stud_login;
-select * from coach_login;
-select * from category;
-select * from groups;
-select * from coach;
-SELECT * FROM skating_students;
-
-
+INSERT INTO coach_login (coach_login_id, coach_id, coach_login, coach_password) VALUES
+(1, 1, 'Yasmin_coach1', 'yasmin_t'),
+(2, 2, 'Maya_coach2', 'maya_1'),
+(3, 3, 'Fatih_coach3', 'fatkik'),
+(4, 4, 'Salima_coach4', 'salima_a');
+select *from stud_chat 
