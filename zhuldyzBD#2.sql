@@ -1,5 +1,5 @@
-CREATE SCHEMA zhuldyzdar;
-DROP SCHEMA zhuldyzdar CASCADE;
+CREATE SCHEMA zhuldyz;
+DROP SCHEMA zhuldyz CASCADE;
 
 -- 1. Таблица категорий (зависимости отсутствуют)
 CREATE TABLE category (
@@ -103,6 +103,7 @@ INSERT INTO category (id_category, category_name) VALUES
 (2, 'Средняя'),
 (3, 'Младшая');
 INSERT INTO coach (coach_id, coach_name) VALUES
+(5, 'Madina')
 (1, 'Ясмин'),
 (2, 'Майя'),
 (3, 'Фатих'),
@@ -200,6 +201,7 @@ INSERT INTO stud_login (stud_login_id, skate_student_id, stud_login, stud_passwo
 (40, 40, 'alma_sadyk_40', 'alma_40'),
 (41, 41, 'daniya_erlan_41', 'daniya_41');
 INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
+(46,null,5,'admin')
 (1, 1, null, 'student'),
 (2, 2, null, 'student'),
 (3, 3, null, 'student'),
@@ -245,9 +247,17 @@ INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
 (43, null, 2, 'coach'),
 (44, null, 3, 'coach'),
 (45, null, 4, 'coach');
+
 INSERT INTO coach_login (coach_login_id, coach_id, coach_login, coach_password) VALUES
+(5,5,'Madina_admin76','admin76')
 (1, 1, 'Yasmin_coach1', 'yasmin_t'),
 (2, 2, 'Maya_coach2', 'maya_1'),
 (3, 3, 'Fatih_coach3', 'fatkik'),
 (4, 4, 'Salima_coach4', 'salima_a');
 select *from stud_chat 
+-- Перемещаем Марат Аяру (id=11) и Марат Даяня (id=12) в группу 2 (Средняя)
+UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 11;
+UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 12;
+
+-- Перемещаем Аяла Беембетова (id=25) в группу 1 (Старшая)
+UPDATE skating_students SET group_id = 1 WHERE skate_student_id = 25;
