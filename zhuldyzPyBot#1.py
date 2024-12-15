@@ -191,7 +191,6 @@ def process_password(message):
 
     cursor.close()
     conn.close()
-
 stud_schedules = {
     1: {
         'ПН': ['17:45–18:45 лед', '18:55–19:55 ОФП'],
@@ -651,7 +650,10 @@ def show_students_list_for_date(chat_id, students):
     markup = types.InlineKeyboardMarkup(row_width=1)
     for student_id, fio in students:
         markup.add(types.InlineKeyboardButton(text=fio, callback_data=f"attendance_student_{student_id}"))
-    bot.send_message(chat_id, f"Дата: {date_obj.strftime('%d.%m.%Y')}\nВыберите студента для отметки посещаемости:", reply_markup=markup)
+    # Добавляем кнопку "Отметить всех"
+    markup.add(types.InlineKeyboardButton(text="Отметить всех", callback_data="attendance_mark_all"))
+    bot.send_message(chat_id, f"Дата: {date_obj.strftime('%d.%m.%Y')}\nВыберите студента для отметки посещаемости или отметьте всех:", reply_markup=markup)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("attendance_student_") and user_data.get(call.message.chat.id, {}).get("step") == "date_selected_for_attendance")
 def attendance_student_selected(call):
@@ -773,6 +775,124 @@ def notify_student_about_mark(chat_id, student_id, coach_id, attendance_value, d
             )
         cursor.close()
         conn.close()
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data == "attendance_mark_all" and user_data.get(call.message.chat.id, {}).get(
+        "step") == "date_selected_for_attendance")
+def attendance_mark_all(call):
+    chat_id = call.message.chat.id
+    user_data[chat_id]["step"] = "awaiting_mark_all_value"
+
+    # Создаем клавиатуру с вариантами посещаемости
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    markup.add(
+        types.InlineKeyboardButton("Н-ка (0)", callback_data="mark_all_0"),
+        types.InlineKeyboardButton("Опоздал (1)", callback_data="mark_all_1"),
+        types.InlineKeyboardButton("Пришел (2)", callback_data="mark_all_2")
+    )
+
+    bot.send_message(chat_id, "Выберите значение посещаемости для всех студентов:", reply_markup=markup)
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("mark_all_") and user_data.get(call.message.chat.id, {}).get(
+        "step") == "awaiting_mark_all_value")
+def process_mark_all(call):
+    chat_id = call.message.chat.id
+    mark_value = call.data.split("_")[-1]  # Получаем значение: '0', '1', '2'
+    date_obj = user_data[chat_id].get("attendance_date")
+    coach_id = user_data[chat_id].get("coach_id")
+    role = user_data[chat_id].get("role")
+
+    # Получаем список студентов
+    conn = connect_to_db()
+    if not conn:
+        bot.send_message(chat_id, "Ошибка подключения к базе данных.")
+        user_data[chat_id]["step"] = "authenticated"
+        return
+
+    cursor = conn.cursor()
+    try:
+        if role == ADMIN_R:
+            # Администратор видит всех студентов
+            cursor.execute('SELECT skate_student_id, fullname FROM skating_students')
+        else:
+            # Тренер видит только своих студентов
+            cursor.execute('''
+                SELECT skating_students.skate_student_id, skating_students.fullname
+                FROM groups
+                JOIN skating_students ON skating_students.group_id = groups.group_id
+                WHERE groups.coach_id = %s
+            ''', (coach_id,))
+        students = cursor.fetchall()
+    except Exception as e:
+        bot.send_message(chat_id, f"Ошибка получения списка студентов: {e}")
+        cursor.close()
+        conn.close()
+        user_data[chat_id]["step"] = "authenticated"
+        return
+
+    if not students:
+        bot.send_message(chat_id, "Список студентов пуст.")
+        cursor.close()
+        conn.close()
+        user_data[chat_id]["step"] = "authenticated"
+        return
+
+    # Обновляем посещаемость для всех студентов
+    try:
+        for student_id, fio in students:
+            # Проверяем, существует ли запись посещаемости
+            cursor.execute(
+                "SELECT attendance FROM attendance WHERE skate_student_id = %s AND coach_id = %s AND date = %s",
+                (student_id, coach_id, date_obj)
+            )
+            existing_record = cursor.fetchone()
+            if existing_record:
+                cursor.execute(
+                    "UPDATE attendance SET attendance = %s WHERE skate_student_id = %s AND coach_id = %s AND date = %s",
+                    (mark_value, student_id, coach_id, date_obj)
+                )
+            else:
+                cursor.execute(
+                    "INSERT INTO attendance (attendance, skate_student_id, coach_id, date) VALUES (%s, %s, %s, %s)",
+                    (mark_value, student_id, coach_id, date_obj)
+                )
+        conn.commit()
+        bot.send_message(chat_id,
+                         f"Посещаемость успешно отмечена для всех студентов с значением '{attendance_status_str(mark_value)}'.")
+
+        # Уведомляем студентов
+        current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+        for student_id, fio in students:
+            # Получаем chat_id студента
+            cursor.execute("SELECT skate_chat_id FROM stud_chat WHERE skate_student_id = %s", (student_id,))
+            student_chat = cursor.fetchone()
+            if student_chat:
+                student_chat_id = student_chat[0]
+                # Получаем имя тренера
+                cursor.execute("SELECT coach_name FROM coach WHERE coach_id = %s", (coach_id,))
+                coach_name = cursor.fetchone()
+                coach_name = coach_name[0] if coach_name else "Тренер"
+
+                # Отправляем сообщение студенту
+                try:
+                    bot.send_message(
+                        student_chat_id,
+                        f"Отметка от тренера *{coach_name}* на дату {date_obj.strftime('%d.%m.%Y')}: {attendance_status_str(mark_value)}.\n🕒 Отправлено: {current_time}",
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    print(f"Ошибка отправки уведомления студенту {student_chat_id}: {e}")
+    except Exception as e:
+        bot.send_message(chat_id, f"Ошибка при обновлении посещаемости: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+        user_data[chat_id]["step"] = "authenticated"
+
 
 def show_students_list_again(chat_id, coach_id):
     conn = connect_to_db()
