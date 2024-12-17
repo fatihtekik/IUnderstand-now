@@ -261,3 +261,54 @@ UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 12;
 
 -- Перемещаем Аяла Беембетова (id=25) в группу 1 (Старшая)
 UPDATE skating_students SET group_id = 1 WHERE skate_student_id = 25;
+
+CREATE TABLE jump_scores (
+    score_id SERIAL PRIMARY KEY,
+    skate_student_id INT,
+    coach_id INT,
+    jump_type VARCHAR(50),
+    technical_score INT,
+    overall_score INT,
+    specific_criteria JSONB, -- Например, {"balance": 8, "control": 7, "air_time": 9}
+    date DATE,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+CREATE TABLE elements (
+    element_id SERIAL PRIMARY KEY,
+    group_id INT,
+    coach_id INT,
+    element_type VARCHAR(20), -- 'Прыжок' или 'Вращение'
+    name VARCHAR(100),
+    FOREIGN KEY (group_id) REFERENCES groups(group_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+
+-- Добавление столбца element_id
+ALTER TABLE jump_scores
+ADD COLUMN element_id INT;
+
+-- Установка внешнего ключа на element_id
+ALTER TABLE jump_scores
+ADD CONSTRAINT fk_jump_scores_elements
+FOREIGN KEY (element_id)
+REFERENCES elements(element_id);
+-- Пример добавления элементов для Ясмин Группа 1
+INSERT INTO elements (group_id, coach_id, element_type, name) VALUES
+(1, 1, 'Скольжение', 'Дуги вперед наружу'),
+(1, 1, 'Скольжение', 'Дуги вперед внутрь'),
+(1, 1, 'Скольжение', 'Дуги назад наружу'),
+(1, 1, 'Скольжение', 'Дуги назад внутрь'),
+(1, 1, 'Скольжение', 'Тройка вперед наружу'),
+(1, 1, 'Скольжение', 'Тройка вперед наружу'),
+(1, 1, 'Скольжение', 'Перебежка вперед с ласточкой вперед внутрь'),
+(1, 1, 'Скольжение', 'Перебежка назад с ласточкой вперед наружу'),
+(1, 1, 'Прыжок', 'Перекидной'),
+(1, 1, 'Прыжок', 'Сальхов одинарный'),
+(1, 1, 'Прыжок', 'Тулуп одинарный'),
+(1, 1, 'Прыжок', 'Флип одинарный'),
+(1, 1, 'Прыжок', 'Лутц одинарный'),
+(1, 1, 'Прыжок', 'Ритбергер одинарный'),
+(1, 1, 'Вращение', 'Либела-8 оборотов'),
+(1, 1, 'Вращение', 'Волчок- 12 оборотов'),
+(1, 1, 'Вращение', 'Винт-12 оборотов');
