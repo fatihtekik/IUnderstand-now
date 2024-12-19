@@ -1,12 +1,13 @@
 import os
 import logging
 from datetime import datetime
+
+import psycopg2.errors
 import telebot
 from telebot import types
 import psycopg2 as psycopg
 from telebot.types import ReplyKeyboardRemove
 import bcrypt
-
 # Настройка логирования
 logging.basicConfig(
     filename='bot.log',
@@ -16,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Получение токена из переменных окружения
-TOKEN = '8154463207:AAGRK4G288WXsWcARiPpHujaZVIoYhn9vtY'
+TOKEN = '7576683979:AAF3OwSTLwIA_AAnu0ZVOZUpCk3lIJWsQTQ'
 if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN не установлен в переменных окружения.")
     raise ValueError("TELEGRAM_BOT_TOKEN не установлен в переменных окружения.")
@@ -36,7 +37,7 @@ user_data = {}
 def connect_to_db():
     try:
         conn = psycopg.connect(
-            dbname="postgres",
+            dbname="папапап",
             user="postgres",
             password="Aidana2007",
             host="localhost",
@@ -80,7 +81,7 @@ def hash_existing_passwords():
         cursor = conn.cursor()
 
         # Хэширование паролей студентов
-        cursor.execute("SELECT id_user, password FROM login")
+        cursor.execute("SELECT * FROM StudentLoginView;")
         users = cursor.fetchall()
         for user in users:
             id_user, plain_password = user
@@ -92,7 +93,7 @@ def hash_existing_passwords():
             logger.info(f"Пароль для студента {id_user} успешно захэширован.")
 
         # Хэширование паролей преподавателей
-        cursor.execute("SELECT teacher_login_id, password FROM teacher_login")
+        cursor.execute("SELECT * FROM TeacherLoginView;")
         teachers = cursor.fetchall()
         for teacher in teachers:
             teacher_login_id, plain_password = teacher
@@ -237,7 +238,9 @@ def process_password(message):
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
         logger.error(f"Пользователь {chat_id} не смог подключиться к базе данных при проверке пароля.")
 
-# Определение расписаний студентов и преподавателей
+
+
+
 stud_schedules = {
     'ПО2301': {
         'ПН': ['ИКТ', 'ИКТ', 'Алгоритмы'],
@@ -314,7 +317,6 @@ def choose_group(message):
         bot.send_message(chat_id, 'Выберите предмет для просмотра расписания:', reply_markup=markup)
     else:
         bot.send_message(chat_id, "Ваша роль не определена. Обратитесь к администратору.")
-        logger.warning(f"Пользователь {chat_id} имеет неопределённую роль при выборе расписания.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("group_"))
 def choose_day(call):
@@ -327,7 +329,6 @@ def choose_day(call):
     buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
     markup.add(*buttons)
     bot.send_message(chat_id, f'Вы выбрали группу {group_id}. Теперь выберите день недели:', reply_markup=markup)
-    logger.info(f"Пользователь {chat_id} выбрал группу: {group_id}.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("subject_teach_"))
 def choose_subject(call):
@@ -339,7 +340,6 @@ def choose_subject(call):
     buttons = [types.InlineKeyboardButton(day, callback_data=f"day_{day}") for day in days]
     markup.add(*buttons)
     bot.send_message(chat_id, f'Вы выбрали предмет "{subject}". Теперь выберите день недели:', reply_markup=markup)
-    logger.info(f"Пользователь {chat_id} выбрал предмет: {subject}.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("day_"))
 def show_day_schedule(call):
@@ -354,13 +354,10 @@ def show_day_schedule(call):
             if schedule:
                 schedule_text = '\n'.join([f'{i+1}. {lesson}' for i, lesson in enumerate(schedule)])
                 bot.send_message(chat_id, f'Расписание на {day} для группы {group_id}:\n{schedule_text}')
-                logger.info(f"Пользователь {chat_id} запросил расписание для группы {group_id} на {day}.")
             else:
                 bot.send_message(chat_id, f'На {day} для группы {group_id} нет занятий.')
-                logger.info(f"Пользователь {chat_id} запросил расписание для группы {group_id} на {day}, но занятий нет.")
         else:
             bot.send_message(chat_id, "Группа не найдена в расписании.")
-            logger.error(f"Пользователь {chat_id} запросил расписание для несуществующей группы: {group_id}.")
 
     elif role == TEACHER_R:
         subject = user_data[chat_id].get("subject")
@@ -371,16 +368,12 @@ def show_day_schedule(call):
                 if schedule_text:
                     bot.send_message(chat_id,
                                      f'Расписание на {day} для предмета {subject}:\n{schedule_text}')
-                    logger.info(f"Пользователь {chat_id} запросил расписание для предмета {subject} на {day}.")
                 else:
                     bot.send_message(chat_id, f'На {day} для предмета {subject} нет занятий.')
-                    logger.info(f"Пользователь {chat_id} запросил расписание для предмета {subject} на {day}, но занятий нет.")
             else:
                 bot.send_message(chat_id, f'На {day} для предмета {subject} нет занятий.')
-                logger.info(f"Пользователь {chat_id} запросил расписание для предмета {subject} на {day}, но занятий нет.")
         else:
             bot.send_message(chat_id, "Расписание для вашего предмета не найдено.")
-            logger.error(f"Пользователь {chat_id} запросил расписание для несуществующего предмета: {subject}.")
 
 def get_gpa_from_score(score):
     if 95 <= score <= 100:
@@ -412,55 +405,48 @@ def show_GPA(message):
     id_stud = user_data[chat_id].get("id_student")
     if not id_stud:
         bot.send_message(chat_id, "ID студента не найден. Перезапустите бота.")
-        logger.warning(f"Пользователь {chat_id} попытался получить GPA без ID студента.")
         return
 
     conn = connect_to_db()
     if not conn:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Пользователь {chat_id} не смог подключиться к базе данных для получения GPA.")
         return
     cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            SELECT teachers.nazvanie_predmeta, teachers.FIO_teacher, AVG(ocenki.ocenka) as avg_score
-            FROM ocenki 
-            JOIN students ON students.id_student = ocenki.id_student 
-            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
-            WHERE students.id_student = %s 
-            GROUP BY teachers.nazvanie_predmeta, teachers.FIO_teacher
-        ''', (id_stud,))
-        rows = cursor.fetchall()
-        if not rows:
-            bot.send_message(chat_id, "Нет данных об оценках.")
-            logger.info(f"Пользователь {chat_id} не имеет оценок.")
-            return
-
-        count_s = 0
-        total_GPA = 0
-        result = ""
-        for row in rows:
-            nazvanie_predmeta, fio_teacher, avg_score = row
-            gpa = get_gpa_from_score(avg_score)
-            total_GPA += gpa
-            count_s += 1
-            result += (f"Предмет: {nazvanie_predmeta}\nПреподаватель: {fio_teacher}\n"
-                       f"Средняя оценка: {avg_score:.2f}\nGPA: {gpa:.2f}\n\n")
-
-        if count_s > 0:
-            overall_gpa = total_GPA / count_s
-            result += f"Средний GPA по всем предметам: {overall_gpa:.2f}"
-        else:
-            result += "Нет оценок для расчета среднего GPA."
-
-        bot.send_message(chat_id, result)
-        logger.info(f"Пользователь {chat_id} запросил GPA.")
-    except Exception as e:
-        bot.send_message(chat_id, "Произошла ошибка при получении GPA.")
-        logger.error(f"Ошибка при получении GPA для пользователя {chat_id}: {e}")
-    finally:
+    cursor.execute('''
+        SELECT teachers.nazvanie_predmeta, teachers.FIO_teacher, AVG(ocenki.ocenka) as avg_score
+        FROM ocenki 
+        JOIN students ON students.id_student = ocenki.id_student 
+        JOIN teachers ON teachers.id_teacher = ocenki.id_teacher 
+        WHERE students.id_student = %s 
+        GROUP BY teachers.nazvanie_predmeta, teachers.FIO_teacher
+    ''', (id_stud,))
+    rows = cursor.fetchall()
+    if not rows:
+        bot.send_message(chat_id, "Нет данных об оценках.")
         cursor.close()
         conn.close()
+        return
+
+    count_s = 0
+    total_GPA = 0
+    result = ""
+    for row in rows:
+        nazvanie_predmeta, fio_teacher, avg_score = row
+        gpa = get_gpa_from_score(avg_score)
+        total_GPA += gpa
+        count_s += 1
+        result += (f"Предмет: {nazvanie_predmeta}\nПреподаватель: {fio_teacher}\n"
+                   f"Средняя оценка: {avg_score:.2f}\nGPA: {gpa:.2f}\n\n")
+
+    if count_s > 0:
+        overall_gpa = total_GPA / count_s
+        result += f"Средний GPA по всем предметам: {overall_gpa:.2f}"
+    else:
+        result += "Нет оценок для расчета среднего GPA."
+
+    bot.send_message(chat_id, result)
+    cursor.close()
+    conn.close()
 
 @bot.message_handler(func=lambda message: message.text == 'Академическая успеваемость')
 def akadem(message):
@@ -468,40 +454,35 @@ def akadem(message):
     id_stud = user_data[chat_id].get("id_student")
     if not id_stud:
         bot.send_message(chat_id, "ID студента не найден. Перезапустите бота.")
-        logger.warning(f"Пользователь {chat_id} попытался получить академическую успеваемость без ID студента.")
         return
 
     conn = connect_to_db()
     if not conn:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Пользователь {chat_id} не смог подключиться к базе данных для получения академической успеваемости.")
         return
     cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            SELECT DISTINCT teachers.nazvanie_predmeta 
-            FROM ocenki
-            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
-            JOIN students ON students.id_student = ocenki.id_student
+    cursor.execute('''
+        SELECT DISTINCT teachers.nazvanie_predmeta
+            FROM students
+            RIGHT JOIN ocenki ON students.id_student = ocenki.id_student
+            RIGHT JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
             WHERE students.id_student = %s;
-        ''', (id_stud,))
-        subjects = cursor.fetchall()
-        if not subjects:
-            bot.send_message(chat_id, "Нет данных об оценках.")
-            logger.info(f"Пользователь {chat_id} не имеет данных об академической успеваемости.")
-            return
-
-        markup = types.InlineKeyboardMarkup()
-        buttons = [types.InlineKeyboardButton(subject[0], callback_data=f"subject_{subject[0]}") for subject in subjects]
-        markup.add(*buttons)
-        bot.send_message(chat_id, "Выберите предмет для просмотра успеваемости:", reply_markup=markup)
-        logger.info(f"Пользователь {chat_id} выбрал просмотр академической успеваемости.")
-    except Exception as e:
-        bot.send_message(chat_id, "Произошла ошибка при получении академической успеваемости.")
-        logger.error(f"Ошибка при получении академической успеваемости для пользователя {chat_id}: {e}")
-    finally:
+    ''', (id_stud,))
+    subjects = cursor.fetchall()
+    if not subjects:
+        bot.send_message(chat_id, "Нет данных об оценках.")
         cursor.close()
         conn.close()
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    print(subjects)
+    buttons = [types.InlineKeyboardButton(subject[0], callback_data=f"subject_{subject[0]}") for subject in subjects]
+    markup.add(*buttons)
+    bot.send_message(chat_id, "Выберите предмет для просмотра успеваемости:", reply_markup=markup)
+
+    cursor.close()
+    conn.close()
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("subject_"))
 def show_subject_ocenki(call):
@@ -512,44 +493,83 @@ def show_subject_ocenki(call):
     conn = connect_to_db()
     if not conn:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Пользователь {chat_id} не смог подключиться к базе данных для просмотра оценок по предмету {subject}.")
         return
     cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            SELECT teachers.nazvanie_predmeta, teachers.fio_teacher, ocenki.ocenka, ocenki.date
-            FROM ocenki
-            JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
-            JOIN students ON students.id_student = ocenki.id_student
-            WHERE students.id_student = %s AND teachers.nazvanie_predmeta = %s
-            ORDER BY ocenki.date
-        ''', (id_stud, subject))
 
-        rows = cursor.fetchall()
-        if not rows:
-            bot.send_message(chat_id, f"Нет данных об успеваемости по предмету {subject}.")
-            logger.info(f"Пользователь {chat_id} запросил успеваемость по предмету {subject}, но данных нет.")
-            return
+    # Оценки за 1 семестр
+    cursor.execute('''
+        SELECT teachers.nazvanie_predmeta, teachers.fio_teacher, ocenki.ocenka, ocenki.date
+        FROM ocenki
+        JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
+        JOIN students ON students.id_student = ocenki.id_student
+        WHERE students.id_student = %s AND teachers.nazvanie_predmeta = %s 
+          AND ocenki.date >= '2024-09-01' AND ocenki.date <= '2024-12-30'
+        ORDER BY ocenki.date
+    ''', (id_stud, subject))
 
-        count_z = 0
-        result = f"Предмет: *{subject}*\nПреподаватель: *{rows[0][1]}*\nОценки:\n"
+    rows = cursor.fetchall()
+    result = f"Предмет: *{subject}*\n"
+    count_z = 0
+    sredn = 0
+    count=0
+
+    if rows:
+        result += "Оценки за 1 семестр:\n"
         for row in rows:
-            nazv, fio_t, ocenka, date = row
+            nazv, fio_t, ocenka, date = row[0], row[1], row[2], row[3]
             if ocenka > 0:
                 result += f" - Оценка: {ocenka}, дата: {date}\n"
+                sredn +=ocenka
+                count+=1
             else:
                 count_z += 1
                 result += f" - Н-ка: {date}\n"
-        result += f"\nКоличество Н-ок: {count_z}"
+    else:
+        result += "Нет оценок за 1 семестр.\n"
 
-        bot.send_message(chat_id, result, parse_mode="Markdown")
-        logger.info(f"Пользователь {chat_id} просмотрел успеваемость по предмету {subject}.")
-    except Exception as e:
-        bot.send_message(chat_id, "Произошла ошибка при получении успеваемости.")
-        logger.error(f"Ошибка при получении успеваемости для пользователя {chat_id} по предмету {subject}: {e}")
-    finally:
-        cursor.close()
-        conn.close()
+    sredn_1 = sredn//count
+    result+= f"Итоговая за 1 семестр: {sredn_1}\n"
+
+    # Оценки за 2 семестр
+    cursor.execute('''
+        SELECT teachers.nazvanie_predmeta, teachers.fio_teacher, ocenki.ocenka, ocenki.date
+        FROM ocenki
+        JOIN teachers ON teachers.id_teacher = ocenki.id_teacher
+        JOIN students ON students.id_student = ocenki.id_student
+        WHERE students.id_student = %s AND teachers.nazvanie_predmeta = %s 
+          AND ocenki.date >= '2025-01-14' AND ocenki.date <= '2025-06-30'
+        ORDER BY ocenki.date
+    ''', (id_stud, subject))
+    count=0
+    count_z=0
+    sredn =0
+
+    rows = cursor.fetchall()
+    if rows:
+        result += "\nОценки за 2 семестр:\n"
+        for row in rows:
+            nazv, fio_t, ocenka, date = row[0], row[1], row[2], row[3]
+            if ocenka > 0:
+                result += f" - Оценка: {ocenka}, дата: {date}\n"
+                sredn +=ocenka
+                count+=1
+            else:
+                count_z += 1
+                result += f" - Н-ка: {date}\n"
+    else:
+        result += "\nНет оценок за 2 семестр.\n"
+
+    sredn_2 = sredn//count
+    result+=f"Итоговая за 2 семестр: {sredn_2}\n"
+
+
+    result += f"\nОбщее количество Н-ок: {count_z}\n\nИтоговая за год: {(sredn_1+sredn_2)//2} "
+    bot.send_message(chat_id, result, parse_mode="Markdown")
+
+    cursor.close()
+    conn.close()
+
+
 
 @bot.message_handler(func=lambda message: message.text == 'Документы')
 def docs(message):
@@ -559,41 +579,28 @@ def docs(message):
     docs_show = types.InlineKeyboardButton(text="Показать документ", callback_data="docs_show")
     markup.add(docs_add, docs_show)
     bot.send_message(chat_id, "Выберите действие с документами:", reply_markup=markup)
-    logger.info(f"Пользователь {chat_id} выбрал управление документами.")
-
 def get_docs(stud):
     conn = connect_to_db()
     if not conn:
-        logger.error(f"Ошибка подключения к базе данных при получении документов для студента {stud}.")
         return []
     cursor = conn.cursor()
-    try:
-        query = "SELECT file_name, file_path FROM documents WHERE stud = %s"
-        cursor.execute(query, (stud,))
-        documents = cursor.fetchall()
-        document_list = [{'file_name': doc[0], 'file_path': doc[1]} for doc in documents]
-        logger.info(f"Получено {len(document_list)} документов для студента {stud}.")
-        return document_list
-    except Exception as e:
-        logger.error(f"Ошибка при получении документов для студента {stud}: {e}")
-        return []
-    finally:
-        cursor.close()
-        conn.close()
+    query = "SELECT file_name, file_path FROM documents WHERE stud = %s"
+    cursor.execute(query, (stud,))
+    documents = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    document_list = [{'file_name': doc[0], 'file_path': doc[1]} for doc in documents]
+    return document_list
 
 def save_file_db(stud, file_name, file_path):
     conn = connect_to_db()
     if not conn:
-        logger.error(f"Ошибка подключения к базе данных при сохранении файла {file_name} для студента {stud}.")
         return
     cursor = conn.cursor()
     try:
         query = "INSERT INTO documents (stud, file_name, file_path) VALUES(%s, %s, %s)"
         cursor.execute(query, (stud, file_name, file_path))
         conn.commit()
-        logger.info(f"Файл {file_name} сохранён для студента {stud}.")
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении файла {file_name} для студента {stud}: {e}")
     finally:
         cursor.close()
         conn.close()
@@ -602,9 +609,9 @@ def save_file_db(stud, file_name, file_path):
 def handle_docs_callback(call):
     chat_id = call.message.chat.id
     action = call.data
-    role = user_data.get(chat_id, {}).get("role")
-    id_stud = user_data.get(chat_id, {}).get("id_student")
-    id_teach = user_data.get(chat_id, {}).get("id_teacher")
+    role = user_data[chat_id].get("role")
+    id_stud = user_data[chat_id].get("id_student")
+    id_teach = user_data[chat_id].get("id_teacher")
 
     if action == "docs_add":
         bot.send_message(chat_id, "Отправьте файл вашего документа")
@@ -612,45 +619,30 @@ def handle_docs_callback(call):
         @bot.message_handler(content_types=['document'])
         def handle_file(message):
             c_id = message.chat.id
-            stud_id = user_data.get(c_id, {}).get("id_student")
+            stud_id = user_data[c_id].get("id_student")
             if message.document:
-                try:
-                    file_info = bot.get_file(message.document.file_id)
-                    downloaded_file = bot.download_file(file_info.file_path)
-                    save_path = os.path.join("documents", message.document.file_name)
-                    with open(save_path, 'wb') as new_file:
-                        new_file.write(downloaded_file)
-                    file_name = message.document.file_name
-                    save_file_db(stud_id, file_name, save_path)
-                    bot.reply_to(message, f'Файл {file_name} сохранен.')
-                    logger.info(f"Пользователь {c_id} загрузил документ: {file_name}.")
-                except Exception as e:
-                    bot.send_message(c_id, "Произошла ошибка при сохранении файла.")
-                    logger.error(f"Ошибка при сохранении файла от пользователя {c_id}: {e}")
+                file_info = bot.get_file(message.document.file_id)
+                downloaded_file = bot.download_file(file_info.file_path)
+                save_path = os.path.join("documents", message.document.file_name)
+                with open(save_path, 'wb') as new_file:
+                    new_file.write(downloaded_file)
+                file_name = message.document.file_name
+                save_file_db(stud_id, file_name, save_path)
+                bot.reply_to(message, f'Файл {file_name} сохранен.')
             else:
-                bot.send_message(c_id, "Документ должен быть в виде файла.")
-                logger.warning(f"Пользователь {c_id} отправил не файл при попытке загрузить документ.")
+                bot.send_message(c_id, "Документ должен быть в виде файла")
 
     elif action == "docs_show":
-        # Показать документы для студента или преподавателя
         if id_stud is not None:
             docum = get_docs(id_stud)
         else:
-            # Если есть функционал для преподавателя, можно добавить при необходимости
             docum = []
         if docum:
             for doc in docum:
-                try:
-                    with open(doc['file_path'], 'rb') as file:
-                        bot.send_message(chat_id, f"Документ: {doc['file_name']}")
-                        bot.send_document(chat_id, file)
-                        logger.info(f"Пользователь {chat_id} получил документ: {doc['file_name']}.")
-                except Exception as e:
-                    bot.send_message(chat_id, f"Ошибка при отправке документа {doc['file_name']}.")
-                    logger.error(f"Ошибка при отправке документа {doc['file_name']} пользователю {chat_id}: {e}")
+                bot.send_message(chat_id, f"Документ: {doc['file_name']}")
+                bot.send_document(chat_id, open(doc['file_path'], 'rb'))
         else:
             bot.send_message(chat_id, "Вы не загрузили ни один документ.")
-            logger.info(f"Пользователь {chat_id} запросил документы, но они отсутствуют.")
 
 @bot.message_handler(func=lambda message: message.text == 'Рейтинг')
 def reiting(message):
@@ -658,72 +650,60 @@ def reiting(message):
     id_stud = user_data[chat_id].get("id_student")
     if not id_stud:
         bot.send_message(chat_id, "ID студента не найден. Перезапустите бота.")
-        logger.warning(f"Пользователь {chat_id} попытался получить рейтинг без ID студента.")
         return
 
     conn = connect_to_db()
     if not conn:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Пользователь {chat_id} не смог подключиться к базе данных для получения рейтинга.")
         return
     cursor = conn.cursor()
-    try:
-        cursor.execute('''
-            SELECT students.id_student, ocenki.ocenka
-            FROM ocenki 
-            JOIN students ON students.id_student = ocenki.id_student  
-            ORDER BY students.id_student
-        ''')
-        rows = cursor.fetchall()
-        if not rows:
-            bot.send_message(chat_id, "Нет данных об оценках.")
-            logger.info(f"Пользователь {chat_id} не имеет данных для рейтинга.")
-            return
-
-        students_grades = {}
-        for row in rows:
-            s_id, ocenka = row
-            if s_id not in students_grades:
-                students_grades[s_id] = {"grades": [], "count_zeros": 0}
-            students_grades[s_id]["grades"].append(ocenka)
-            if ocenka == 0:
-                students_grades[s_id]["count_zeros"] += 1
-
-        students_avg = []
-        for student_id, data in students_grades.items():
-            total_grades = sum(data["grades"])
-            total_count = len(data["grades"])
-            avg_grade = total_grades / total_count if total_count > 0 else 0
-            students_avg.append({"id_student": student_id, "avg_grade": avg_grade, "count_zeros": data["count_zeros"]})
-
-        # Сортировка по среднему баллу (по убыванию)
-        students_avg.sort(key=lambda x: x["avg_grade"], reverse=True)
-
-        result = ""
-        for index, student in enumerate(students_avg):
-            rank = index + 1
-            avg_grade = student["avg_grade"]
-            count_zeros = student["count_zeros"]
-            result += f"Место: {rank}.\nСредний балл: {avg_grade:.2f}.   Н-ок: {count_zeros}\n\n"
-
-        # Поиск места текущего пользователя
-        user_rank = next((index + 1 for index, student in enumerate(students_avg) if student["id_student"] == id_stud), None)
-        if user_rank:
-            user_avg = students_avg[user_rank - 1]['avg_grade']
-            user_zeros = students_avg[user_rank - 1]['count_zeros']
-            result += f"\nВаше место: {user_rank}.\nСредний балл: {user_avg:.2f}\nКоличество Н-ок: {user_zeros}"
-            logger.info(f"Пользователь {chat_id} получил свой рейтинг: место {user_rank}.")
-        else:
-            result += "\nНе удалось найти ваше место в рейтинге."
-            logger.warning(f"Пользователь {chat_id} не найден в рейтинге.")
-
-        bot.send_message(chat_id, result)
-    except Exception as e:
-        bot.send_message(chat_id, "Произошла ошибка при получении рейтинга.")
-        logger.error(f"Ошибка при получении рейтинга для пользователя {chat_id}: {e}")
-    finally:
+    cursor.execute('''
+        SELECT students.id_student, ocenki.ocenka
+        FROM ocenki 
+        JOIN students ON students.id_student = ocenki.id_student  
+        ORDER BY students.id_student
+    ''')
+    rows = cursor.fetchall()
+    if not rows:
+        bot.send_message(chat_id, "Нет данных об оценках.")
         cursor.close()
         conn.close()
+        return
+
+    students_grades = {}
+    for row in rows:
+        s_id, ocenka = row
+        if s_id not in students_grades:
+            students_grades[s_id] = {"grades": [], "count_zeros": 0}
+        students_grades[s_id]["grades"].append(ocenka)
+        if ocenka == 0:
+            students_grades[s_id]["count_zeros"] += 1
+
+    students_avg = []
+    for student_id, data in students_grades.items():
+        total_grades = sum(data["grades"])
+        total_count = len(data["grades"])
+        avg_grade = total_grades / total_count if total_count > 0 else 0
+        students_avg.append({"id_student": student_id, "avg_grade": avg_grade, "count_zeros": data["count_zeros"]})
+
+    students_avg.sort(key=lambda x: x["avg_grade"], reverse=True)
+
+    result = ""
+    for index, student in enumerate(students_avg):
+        rank = index + 1
+        avg_grade = student["avg_grade"]
+        count_zeros = student["count_zeros"]
+        result += f"Место: {rank}.\nСредний балл: {avg_grade:.2f}.   Н-ок: {count_zeros}\n\n"
+
+    user_rank = next((index + 1 for index, student in enumerate(students_avg) if student["id_student"] == id_stud), None)
+    if user_rank:
+        result += f"\nВаше место: {user_rank}.\nСредний балл: {students_avg[user_rank - 1]['avg_grade']:.2f}\n"
+    else:
+        result += "\nНе удалось найти ваше место в рейтинге."
+
+    bot.send_message(chat_id, result)
+    cursor.close()
+    conn.close()
 
 @bot.message_handler(func=lambda message: message.text == 'Переносы')
 def vvod(message):
@@ -732,42 +712,32 @@ def vvod(message):
     id_teach = user_data[chat_id].get("id_teacher")
     if role == STUDENT_R:
         bot.send_message(chat_id, "Этой функцией могут пользоваться только учителя.")
-        logger.warning(f"Студент {chat_id} попытался использовать функцию переноса.")
     elif role == TEACHER_R:
         conn = connect_to_db()
         if not conn:
             bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-            logger.error(f"Преподаватель {chat_id} не смог подключиться к базе данных для переноса.")
             return
         cursor = conn.cursor()
-        try:
-            cursor.execute('''
-                SELECT gruppy.nazvanie_gruppy 
-                FROM gruppy
-                JOIN spec_teacher ON spec_teacher.spec_id = gruppy.spec_id
-                WHERE spec_teacher.teacher_id = %s
-            ''', (id_teach,))
-            rows = cursor.fetchall()
-            if not rows:
-                bot.send_message(chat_id, "Нет данных о группах.")
-                logger.info(f"Преподаватель {chat_id} не имеет связанных групп.")
-                return
-            markup = types.InlineKeyboardMarkup()
-            for row in rows:
-                nazvanie_gruppy = row[0]
-                button = types.InlineKeyboardButton(text=nazvanie_gruppy, callback_data=f"perenos_{nazvanie_gruppy}")
-                markup.add(button)
-            bot.send_message(chat_id, "Выберите группу:", reply_markup=markup)
-            logger.info(f"Преподаватель {chat_id} выбрал управление переносами для групп.")
-        except Exception as e:
-            bot.send_message(chat_id, "Произошла ошибка при получении групп.")
-            logger.error(f"Ошибка при получении групп для преподавателя {chat_id}: {e}")
-        finally:
+        cursor.execute('''
+            SELECT gruppy.nazvanie_gruppy 
+            FROM gruppy
+            JOIN spec_teacher ON spec_teacher.spec_id = gruppy.spec_id
+            WHERE spec_teacher.teacher_id = %s
+        ''', (id_teach,))
+        rows = cursor.fetchall()
+        if not rows:
+            bot.send_message(chat_id, "Нет данных о группах.")
             cursor.close()
             conn.close()
-    else:
-        bot.send_message(chat_id, "Ваша роль не определена. Обратитесь к администратору.")
-        logger.warning(f"Пользователь {chat_id} имеет неопределённую роль при попытке использования переноса.")
+            return
+        markup = types.InlineKeyboardMarkup()
+        for row in rows:
+            nazvanie_gruppy = row[0]
+            button = types.InlineKeyboardButton(text=nazvanie_gruppy, callback_data=f"perenos_{nazvanie_gruppy}")
+            markup.add(button)
+        bot.send_message(chat_id, "Выберите группу:", reply_markup=markup)
+        cursor.close()
+        conn.close()
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("perenos_"))
 def choose_group_pzh(call):
@@ -777,8 +747,7 @@ def choose_group_pzh(call):
         "group_name": group_name,
         "process_completed": False
     }
-    bot.send_message(chat_id, "Напишите сообщение студентам группы.")
-    logger.info(f"Преподаватель {chat_id} выбрал группу {group_name} для переноса.")
+    bot.send_message(chat_id, "Напишите сообщение студентам")
 
 @bot.message_handler(func=lambda message: "perenos" in user_data.get(message.chat.id, {}) and not user_data[message.chat.id]["perenos"]["process_completed"])
 def handle_group_message(message):
@@ -790,98 +759,85 @@ def handle_group_message(message):
     conn = connect_to_db()
     if not conn:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Преподаватель {chat_id} не смог подключиться к базе данных для отправки сообщения.")
         return
     cursor = conn.cursor()
+    cursor.execute("SELECT id_gruppy FROM gruppy WHERE nazvanie_gruppy = %s", (group_name,))
+    group_id = cursor.fetchone()
+    if group_id:
+        group_id = group_id[0]
+    else:
+        bot.send_message(chat_id, "Группа не найдена в базе данных.")
+        cursor.close()
+        conn.close()
+        return
+
+    cursor.execute("SELECT fio_teacher FROM teachers WHERE id_teacher = %s", (id_teach,))
+    teacher_name = cursor.fetchone()
+    if teacher_name:
+        teacher_name = teacher_name[0]
+    else:
+        teacher_name = "Преподаватель"
+
+    # Сохраняем сообщение о переносе в БД
     try:
-        cursor.execute("SELECT id_gruppy FROM gruppy WHERE nazvanie_gruppy = %s", (group_name,))
-        group_id = cursor.fetchone()
-        if group_id:
-            group_id = group_id[0]
-        else:
-            bot.send_message(chat_id, "Группа не найдена в базе данных.")
-            logger.error(f"Преподаватель {chat_id} выбрал несуществующую группу: {group_name}.")
-            cursor.close()
-            conn.close()
-            return
-
-        cursor.execute("SELECT fio_teacher FROM teachers WHERE id_teacher = %s", (id_teach,))
-        teacher_name = cursor.fetchone()
-        teacher_name = teacher_name[0] if teacher_name else "Преподаватель"
-
-        # Сохраняем сообщение о переносе в БД
-        try:
-            cursor.execute("INSERT INTO reschedule (id_gruppy, text_message) VALUES (%s, %s)", (group_id, text_message))
-            conn.commit()
-            logger.info(f"Преподаватель {chat_id} сохранил сообщение о переносе для группы {group_id}.")
-        except Exception as e:
-            bot.send_message(chat_id, f"Ошибка записи в базу данных: {e}")
-            logger.error(f"Ошибка записи сообщения о переносе от преподавателя {chat_id} для группы {group_id}: {e}")
-            cursor.close()
-            conn.close()
-            return
-
-        # Отправляем сообщение студентам
-        try:
-            cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_gruppy = %s", (group_id,))
-            students = cursor.fetchall()
-        except Exception as e:
-            bot.send_message(chat_id, f"Ошибка получения списка студентов: {e}")
-            logger.error(f"Ошибка при получении списка студентов для группы {group_id}: {e}")
-            cursor.close()
-            conn.close()
-            return
-
-        cursor.close()
-        conn.close()
-
-        if not students:
-            bot.send_message(chat_id, "В этой группе нет зарегистрированных учеников.")
-            logger.info(f"Группа {group_id} не имеет зарегистрированных студентов.")
-            user_data[chat_id]["perenos"]["process_completed"] = True
-            return
-
-        current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
-
-        for student in students:
-            student_id = student[0]
-            try:
-                bot.send_message(
-                    student_id,
-                    f"*{teacher_name}* отправил сообщение:\n\n_{text_message}_\n\n🕒 Отправлено: {current_time}",
-                    parse_mode="Markdown"
-                )
-                logger.info(f"Студент {student_id} получил сообщение от преподавателя {chat_id}.")
-            except Exception as e:
-                logger.error(f"Ошибка отправки сообщения студенту {student_id}: {e}")
-
-        bot.send_message(chat_id, "Сообщение отправлено всем ученикам группы.")
-        user_data[chat_id]["perenos"]["process_completed"] = True
+        cursor.execute("INSERT INTO reschedule (id_gruppy, text_message) VALUES (%s, %s)", (group_id, text_message))
+        conn.commit()
     except Exception as e:
-        bot.send_message(chat_id, "Произошла ошибка при обработке сообщения.")
-        logger.error(f"Ошибка при обработке сообщения о переносе для преподавателя {chat_id}: {e}")
-    finally:
+        bot.send_message(chat_id, f"Ошибка записи в базу данных: {e}")
         cursor.close()
         conn.close()
+        return
+
+    # Отправляем сообщение студентам
+    try:
+        cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_gruppy = %s", (group_id,))
+        students = cursor.fetchall()
+    except Exception as e:
+        bot.send_message(chat_id, f"Ошибка получения списка студентов: {e}")
+        cursor.close()
+        conn.close()
+        return
+
+    cursor.close()
+    conn.close()
+
+    if not students:
+        bot.send_message(chat_id, "В этой группе нет зарегистрированных учеников.")
+        user_data[chat_id]["perenos"]["process_completed"] = True
+        return
+
+    current_time = datetime.now().strftime("%d.%m.%Y %H:%M")
+
+    for student in students:
+        student_id = student[0]
+        try:
+            bot.send_message(
+                student_id,
+                f"*{teacher_name}* отправил сообщение:\n\n_{text_message}_\n\n🕒 Отправлено: {current_time}",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"Ошибка отправки сообщения пользователю {student_id}: {e}")
+
+    bot.send_message(chat_id, "Сообщение отправлено всем ученикам группы.")
+    user_data[chat_id]["perenos"]["process_completed"] = True
 
 # Функция для получения chat_id студента
 def get_student_chat_id(student_id):
     conn = connect_to_db()
     if not conn:
-        logger.error(f"Ошибка подключения к базе данных при получении chat_id для студента {student_id}.")
+        print("Ошибка подключения к базе данных.")
         return None
     try:
         cursor = conn.cursor()
         cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_student = %s", (student_id,))
         result = cursor.fetchone()
         if result:
-            logger.info(f"Получен chat_id для студента {student_id}: {result[0]}.")
             return result[0]
         else:
-            logger.warning(f"chat_id не найден для студента {student_id}.")
             return None
     except Exception as e:
-        logger.error(f"Ошибка при получении chat_id для студента {student_id}: {e}")
+        print("Ошибка получения chat_id:", e)
         return None
     finally:
         cursor.close()
@@ -891,9 +847,8 @@ def get_student_chat_id(student_id):
 def teacher_menu(message):
     chat_id = message.chat.id
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add('Выставить оценку', 'Отметить пропуск', 'Назад')
+    markup.add('Выставить оценку', 'Отметить пропуск', 'Удалить оценку', 'Назад')
     bot.send_message(chat_id, "Выберите действие:", reply_markup=markup)
-    logger.info(f"Преподаватель {chat_id} открыл меню ввода оценок и Н-ок.")
 
 @bot.message_handler(func=lambda message: message.text == 'Выставить оценку' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
 def ask_student_for_grade(message):
@@ -902,35 +857,28 @@ def ask_student_for_grade(message):
     conn = connect_to_db()
     if conn:
         cursor = conn.cursor()
-        try:
-            cursor.execute('''
-                SELECT students.id_student, students.fio
-                FROM spec_teacher
-                JOIN gruppy ON gruppy.spec_id = spec_teacher.spec_id
-                JOIN students ON students.id_gruppy = gruppy.id_gruppy
-                WHERE spec_teacher.teacher_id = %s
-            ''', (id_teach,))
-            students = cursor.fetchall()
-            if students:
-                markup = types.InlineKeyboardMarkup(row_width=1)
-                for student in students:
-                    student_id, fio = student
-                    markup.add(types.InlineKeyboardButton(text=fio, callback_data=f"select_student_grade_{student_id}"))
-                bot.send_message(chat_id, "Выберите студента из списка:", reply_markup=markup)
-                user_data[chat_id]["step"] = "selecting_student_for_grade"
-                logger.info(f"Преподаватель {chat_id} выбрал выставление оценки.")
-            else:
-                bot.send_message(chat_id, "Список студентов пуст.")
-                logger.info(f"Преподаватель {chat_id} попытался выставить оценку, но список студентов пуст.")
-        except Exception as e:
-            bot.send_message(chat_id, "Произошла ошибка при получении списка студентов.")
-            logger.error(f"Ошибка при получении списка студентов для преподавателя {chat_id}: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+        cursor.execute('''
+            SELECT students.id_student, students.fio
+            FROM spec_teacher
+            JOIN gruppy ON gruppy.spec_id = spec_teacher.spec_id
+            JOIN students ON students.id_gruppy = gruppy.id_gruppy
+            WHERE spec_teacher.teacher_id = %s
+        ''', (id_teach,))
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if students:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for student in students:
+                student_id, fio = student
+                markup.add(types.InlineKeyboardButton(text=fio, callback_data=f"select_student_grade_{student_id}"))
+            bot.send_message(chat_id, "Выберите студента из списка:", reply_markup=markup)
+            user_data[chat_id]["step"] = "selecting_student_for_grade"
+        else:
+            bot.send_message(chat_id, "Список студентов пуст.")
     else:
         bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-        logger.error(f"Преподаватель {chat_id} не смог подключиться к базе данных для выставления оценок.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_student_grade_"))
 def receive_student_for_grade(call):
@@ -939,7 +887,6 @@ def receive_student_for_grade(call):
     user_data[chat_id]["student_id_for_grade"] = student_id
     user_data[chat_id]["step"] = "awaiting_grade_date"
     bot.send_message(chat_id, "Введите дату в формате ДД.ММ.ГГГГ:")
-    logger.info(f"Преподаватель {chat_id} выбрал студента {student_id} для выставления оценки.")
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "awaiting_grade_date")
 def receive_grade_date(message):
@@ -950,10 +897,8 @@ def receive_grade_date(message):
         user_data[chat_id]["grade_date"] = date_obj
         user_data[chat_id]["step"] = "awaiting_grade_value"
         bot.send_message(chat_id, "Введите оценку (от 0 до 100):")
-        logger.info(f"Преподаватель {chat_id} ввёл дату оценки: {date_obj}.")
     except ValueError:
         bot.send_message(chat_id, "Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ.")
-        logger.warning(f"Преподаватель {chat_id} ввёл неверный формат даты: {date_text}.")
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "awaiting_grade_value")
 def receive_grade_value(message):
@@ -967,9 +912,9 @@ def receive_grade_value(message):
             conn = connect_to_db()
             if not conn:
                 bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-                logger.error(f"Преподаватель {chat_id} не смог подключиться к базе данных для выставления оценки.")
                 return
             cursor = conn.cursor()
+
             try:
                 cursor.execute(
                     "SELECT ocenka FROM ocenki WHERE id_student = %s AND id_teacher = %s AND date = %s",
@@ -984,12 +929,11 @@ def receive_grade_value(message):
                     )
                     bot.send_message(
                         chat_id,
-                        f"У этого студента уже есть оценка на {grade_date.strftime('%d.%m.%Y')}: {existing_grade[0]}.\nОбновить её?",
+                        f"У этого студента уже есть оценка на {grade_date.strftime('%d.%m.%Y')}: {existing_grade[0]}.\nОбновить ее?",
                         reply_markup=markup
                     )
                     user_data[chat_id]["step"] = "confirming_update_grade"
                     user_data[chat_id]["new_grade"] = grade
-                    logger.info(f"Преподаватель {chat_id} запросил обновление оценки для студента {student_id} на дату {grade_date}.")
                 else:
                     # Вставляем новую оценку
                     cursor.execute(
@@ -997,35 +941,31 @@ def receive_grade_value(message):
                         (student_id, id_teach, grade, grade_date)
                     )
                     conn.commit()
-                    logger.info(f"Преподаватель {chat_id} выставил оценку {grade} для студента {student_id} на дату {grade_date}.")
 
-                    # Уведомляем студента о новой оценке
+                    # Уведомляем студента о новой оценк
                     cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_student = %s", (student_id,))
                     student_chat_id = cursor.fetchone()
                     if student_chat_id:
                         student_chat_id = student_chat_id[0]
-                        cursor.execute("SELECT fio_teacher FROM teachers WHERE id_teacher = %s", (id_teach,))
+                        cursor.execute("SELECT fio_teacher FROM teacher_name_view WHERE id_teacher = %s;", (id_teach,))
                         teacher_fio = cursor.fetchone()
                         teacher_fio = teacher_fio[0] if teacher_fio else "Преподаватель"
                         bot.send_message(
                             student_chat_id,
                             f"Вам выставлена новая оценка {grade} от преподавателя {teacher_fio} на дату {grade_date.strftime('%d.%m.%Y')}."
                         )
-                        logger.info(f"Студент {student_id} уведомлён о новой оценке {grade} от преподавателя {id_teach}.")
                     bot.send_message(chat_id, "Оценка успешно сохранена и студент уведомлён.")
                     user_data[chat_id]["step"] = "authenticated"
-            except Exception as e:
-                bot.send_message(chat_id, "Произошла ошибка при сохранении оценки.")
-                logger.error(f"Ошибка при сохранении оценки для студента {student_id} преподавателем {chat_id}: {e}")
+            except psycopg2.errors.CheckViolation:
+                bot.send_message(chat_id, "Ошибка: В указанный день урока не было.")
             finally:
                 cursor.close()
                 conn.close()
         else:
             bot.send_message(chat_id, "Введите корректную оценку от 0 до 100.")
-            logger.warning(f"Преподаватель {chat_id} ввёл некорректную оценку: {grade}.")
     except ValueError:
         bot.send_message(chat_id, "Введите числовое значение для оценки.")
-        logger.warning(f"Преподаватель {chat_id} ввёл нечисловое значение для оценки: {message.text}.")
+
 
 @bot.callback_query_handler(func=lambda call: call.data in ["confirm_update_grade_yes", "confirm_update_grade_no"])
 def confirm_update_grade(call):
@@ -1038,40 +978,20 @@ def confirm_update_grade(call):
         conn = connect_to_db()
         if not conn:
             bot.send_message(chat_id, "Ошибка подключения к базе данных.")
-            logger.error(f"Преподаватель {chat_id} не смог подключиться к базе данных для обновления оценки.")
             return
         cursor = conn.cursor()
-        try:
-            cursor.execute(
-                "UPDATE ocenki SET ocenka = %s WHERE id_student = %s AND id_teacher = %s AND date = %s",
-                (new_grade, student_id, id_teach, grade_date)
-            )
-            conn.commit()
-            logger.info(f"Преподаватель {chat_id} обновил оценку для студента {student_id} на дату {grade_date} до {new_grade}.")
-
-            # Уведомляем студента о новой оценке
-            cursor.execute("SELECT chat_id FROM student_chat_id WHERE id_student = %s", (student_id,))
-            student_chat_id = cursor.fetchone()
-            if student_chat_id:
-                student_chat_id = student_chat_id[0]
-                cursor.execute("SELECT fio_teacher FROM teachers WHERE id_teacher = %s", (id_teach,))
-                teacher_fio = cursor.fetchone()
-                teacher_fio = teacher_fio[0] if teacher_fio else "Преподаватель"
-                bot.send_message(
-                    student_chat_id,
-                    f"Вам выставлена новая оценка {new_grade} от преподавателя {teacher_fio} на дату {grade_date.strftime('%d.%m.%Y')}."
-                )
-                logger.info(f"Студент {student_id} уведомлён об обновлении оценки до {new_grade}.")
-            bot.send_message(chat_id, "Оценка успешно обновлена и студент уведомлён.")
-        except Exception as e:
-            bot.send_message(chat_id, "Произошла ошибка при обновлении оценки.")
-            logger.error(f"Ошибка при обновлении оценки для студента {student_id} преподавателем {chat_id}: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+        cursor.execute(
+            "UPDATE ocenki SET ocenka = %s WHERE id_student = %s AND id_teacher = %s AND date = %s",
+            (new_grade, student_id, id_teach, grade_date)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        bot.send_message(chat_id, "Оценка успешно обновлена.")
+        user_data[chat_id]["step"] = "authenticated"
     else:
-        bot.send_message(chat_id, "Операция отменена. Оценка не была изменена.")
-        logger.info(f"Преподаватель {chat_id} отменил обновление оценки.")
+        bot.send_message(chat_id, "Операция отменена.")
+        user_data[chat_id]["step"] = "authenticated"
 
 @bot.message_handler(func=lambda message: message.text == 'Отметить пропуск' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
 def ask_student_for_absence(message):
@@ -1210,11 +1130,112 @@ def confirm_update_absence(call):
 
     user_data[chat_id]["step"] = "authenticated"
 
+
+
+
+
+
+
+
+
+
+
+@bot.message_handler(func=lambda message: message.text == 'Удалить оценку' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
+def ask_student_for_grade(message):
+    chat_id = message.chat.id
+    id_teach = user_data[chat_id].get("id_teacher")
+    conn = connect_to_db()
+    if conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT students.id_student, students.fio
+            FROM spec_teacher
+            JOIN gruppy ON gruppy.spec_id = spec_teacher.spec_id
+            JOIN students ON students.id_gruppy = gruppy.id_gruppy
+            WHERE spec_teacher.teacher_id = %s
+        ''', (id_teach,))
+        students = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if students:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for student in students:
+                student_id, fio = student
+                markup.add(types.InlineKeyboardButton(text=fio, callback_data=f"delete_grade_{student_id}"))
+            bot.send_message(chat_id, "Выберите студента из списка:", reply_markup=markup)
+            user_data[chat_id]["step"] = "selecting_student_for_grade"
+        else:
+            bot.send_message(chat_id, "Список студентов пуст.")
+    else:
+        bot.send_message(chat_id, "Ошибка подключения к базе данных.")
+
+# Хендлер для выбора студента через callback
+@bot.callback_query_handler(func=lambda call: call.data.startswith("delete_grade_"))
+def receive_student_for_grade(call):
+    chat_id = call.message.chat.id
+    student_id = int(call.data.split("_")[-1])
+    user_data[chat_id]["student_id_for_grade"] = student_id
+    user_data[chat_id]["step"] = "delete_grade_date"
+    bot.send_message(chat_id, "Введите дату в формате ДД.ММ.ГГГГ:")
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "delete_grade_date")
+def receive_grade_date(message):
+    chat_id = message.chat.id
+    date_text = message.text.strip()
+    try:
+        date_obj = datetime.strptime(date_text, "%d.%m.%Y").date()
+        user_data[chat_id]["grade_date"] = date_obj
+        user_data[chat_id]["step"] = "delete_grade_confirm"
+        bot.send_message(chat_id, "Подтвердите удаление оценки. Напишите 'да' для подтверждения или 'нет' для отмены.")
+    except ValueError:
+        bot.send_message(chat_id, "Неверный формат даты. Введите дату в формате ДД.ММ.ГГГГ.")
+
+# Хендлер для подтверждения удаления
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "delete_grade_confirm")
+def confirm_grade_deletion(message):
+    chat_id = message.chat.id
+    confirmation = message.text.strip().lower()
+    if confirmation == 'да':
+        student_id = user_data[chat_id].get("student_id_for_grade")
+        grade_date = user_data[chat_id].get("grade_date")
+        conn = connect_to_db()
+        if conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('''
+                    DELETE FROM ocenki
+                    WHERE id_student = %s AND date = %s
+                ''', (student_id, grade_date))
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+                bot.send_message(chat_id, "Оценка успешно удалена.")
+            except Exception as e:
+                bot.send_message(chat_id, f"Ошибка при удалении оценки: {e}")
+        else:
+            bot.send_message(chat_id, "Ошибка подключения к базе данных.")
+
+
+
+        user_data[chat_id].pop("step", None)
+        user_data[chat_id].pop("student_id_for_grade", None)
+        user_data[chat_id].pop("grade_date", None)
+    elif confirmation == 'нет':
+        bot.send_message(chat_id, "Удаление оценки отменено.")
+        user_data[chat_id].pop("step", None)
+    else:
+        bot.send_message(chat_id, "Введите 'да' для подтверждения или 'нет' для отмены.")
+
+
+
+
 @bot.message_handler(func=lambda message: message.text == 'Назад')
 def go_back(message):
     chat_id = message.chat.id
-    role = user_data.get(chat_id, {}).get("role")
     user_data[chat_id]["step"] = "authenticated"
+    role = user_data[chat_id].get("role")
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     if role == STUDENT_R:
         markup.add(
@@ -1232,21 +1253,7 @@ def go_back(message):
         )
     else:
         bot.send_message(chat_id, "Пожалуйста, введите /start для начала работы с ботом.")
-        logger.warning(f"Пользователь {chat_id} с неопределённой ролью попытался вернуться назад.")
         return
     bot.send_message(chat_id, "Вы вернулись в главное меню.", reply_markup=markup)
-    logger.info(f"Пользователь {chat_id} вернулся в главное меню.")
 
-@bot.message_handler(func=lambda message: message.text == 'Ввод оценок и Н-ок' and user_data.get(message.chat.id, {}).get("role") == TEACHER_R)
-def teacher_menu(message):
-    chat_id = message.chat.id
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add('Выставить оценку', 'Отметить пропуск', 'Назад')
-    bot.send_message(chat_id, "Выберите действие:", reply_markup=markup)
-    logger.info(f"Преподаватель {chat_id} открыл меню ввода оценок и Н-ок.")
-
-# Запуск бота
-try:
-    bot.infinity_polling()
-except Exception as e:
-    logger.critical(f"Бот неожиданно завершил работу: {e}")
+bot.infinity_polling()
