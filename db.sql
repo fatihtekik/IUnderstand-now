@@ -1,304 +1,207 @@
-drop schema public cascade;
-create schema public;
+CREATE SCHEMA zhuldyz;
+DROP SCHEMA zhuldyz CASCADE;
 
-CREATE TABLE spec (
-    spec_id SERIAL PRIMARY KEY, 
-    spec_name VARCHAR(255) NOT NULL
+-- 1. Таблица категорий (зависимости отсутствуют)
+CREATE TABLE category (
+    id_category INT PRIMARY KEY,
+    category_name VARCHAR(100)
 );
 
-CREATE TABLE gruppy (
-    id_gruppy SERIAL PRIMARY KEY,  
-    nazvanie_gruppy VARCHAR(255) NOT NULL,     
-    spec_id INT,
-    CONSTRAINT fk_gruppy_spec FOREIGN KEY (spec_id) REFERENCES spec (spec_id)
+-- 2. Таблица тренеров (зависимости отсутствуют)
+CREATE TABLE coach (
+    coach_id INT PRIMARY KEY,
+    coach_name VARCHAR(100)
 );
 
-CREATE TABLE students (
-    id_student SERIAL PRIMARY KEY, 
-    FIO VARCHAR(255) NOT NULL,               
-    IIN CHAR(12) NOT NULL UNIQUE,            
-    id_gruppy INT,
-    CONSTRAINT fk_students_gruppy FOREIGN KEY (id_gruppy) REFERENCES gruppy (id_gruppy)
+-- 3. Таблица групп (зависимости от категорий и тренеров)
+CREATE TABLE groups (
+    group_id INT PRIMARY KEY,
+    id_category INT,
+    coach_id INT,
+    FOREIGN KEY (id_category) REFERENCES category(id_category),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
 );
 
-CREATE TABLE teachers (
-    id_teacher SERIAL PRIMARY KEY, 
-    FIO_teacher VARCHAR(255) NOT NULL, 
-    IIN CHAR(12) NOT NULL UNIQUE, 
-    nazvanie_predmeta VARCHAR(100)
-);
-
-CREATE TABLE ocenki (
-    id_ocenki SERIAL PRIMARY KEY, 
-    ocenka INT NOT NULL, 
-    id_student INT, 
-    id_teacher INT, 
-    date DATE NOT NULL,
-    CONSTRAINT fk_ocenki_student FOREIGN KEY (id_student) REFERENCES students (id_student),
-    CONSTRAINT fk_ocenki_teacher FOREIGN KEY (id_teacher) REFERENCES teachers (id_teacher)
-);
-
-CREATE TABLE spec_teacher (
-    spec_id INT, 
-    teacher_id INT,
-    PRIMARY KEY (spec_id, teacher_id),
-    CONSTRAINT fk_spec_teacher_spec FOREIGN KEY (spec_id) REFERENCES spec (spec_id),
-    CONSTRAINT fk_spec_teacher_teacher FOREIGN KEY (teacher_id) REFERENCES teachers (id_teacher)
-);
-INSERT INTO spec (spec_id, spec_name) VALUES
-(1, 'Программное обеспечение'),
-(2, 'Вычислительная техника');
-
-INSERT INTO gruppy (id_gruppy, nazvanie_gruppy, spec_id) VALUES
-(1, 'ПО2302', 1),
-(2, 'ПО2301', 1),
-(3, 'ВТ2310', 2);
-
-
-INSERT INTO students (id_student, FIO, IIN, id_gruppy) 
-VALUES 
-    (1, 'Шугаева Анель Маратовна', '070324651515', 1),
-    (2, 'Калиева Айдана Талгатовна', '070527651616', 1),
-    (3, 'Текик Фатих Салих', '080203553557', 1),
-	(4, 'Раймбекова Айым Максатовна', '080603245588', 1),
-	(5, 'Жакупбекова Диана Бекайдаровна', '070616060509', 1),
-	(6, 'Поперечный Данила Алексеевич ','959894656712',2),
-	(7, 'Музиченко Юрий Юриевич','023152648721',2),
-	(8, 'Прусикин Илья Владимирович','015489365879',2),
-	(9, 'Габидуллин Руслан Ильсиярович','325489685247',2),
-	(10, 'Куплинов Дмитрий Алексеевич','658915462357',2),
-	(11, 'Павел Виктор Андреевич','315698745612',3),
-	(12, 'Воля Павел Алексеевич','326587462598',3),
-	(13, 'Быков Андрей Вячеславович','658947235489',3),
-	(14, 'Лобанов Семен Семенович','654892453672',3),
-	(15, 'Сабуров Нурлан Алибекович','312598762541',3);
-
-
-INSERT INTO teachers (id_teacher, FIO_teacher, IIN, nazvanie_predmeta) VALUES
-(1, 'Ахмадиева Арай Кайратовна', '060415651515', 'Информационно-коммуникационные технологии'),
-(2, 'Шапигуллин Бекдаулет Алтынбекович', '051212651616', 'Организация обработки базы данных'),
-(3, 'Музданов Бауыржан Темиртасович', '070327553577', 'Информатика');
-
-
-
-INSERT INTO ocenki (id_ocenki, ocenka, id_student, id_teacher, date) VALUES
-(1, 85, 1, 1, '2023-09-10'),
-(2, 90, 1, 2, '2023-10-15'),
-(3, 80, 1, 3, '2023-11-20'),
-(4, 78, 1, 1, '2024-01-05'),
-(5, 88, 1, 2, '2024-02-18'),
-
-(6, 92, 2, 1, '2023-09-12'),
-(7, 85, 2, 2, '2023-10-18'),
-(8, 75, 2, 3, '2023-11-22'),
-(9, 78, 2, 1, '2024-01-07'),
-(10, 95, 2, 2, '2024-02-20'),
-
-(11, 70, 3, 1, '2023-09-14'),
-(12, 85, 3, 2, '2023-10-20'),
-(13, 88, 3, 3, '2023-11-25'),
-(14, 80, 3, 1, '2024-01-10'),
-(15, 90, 3, 2, '2024-02-22'),
-
-(16, 75, 4, 1, '2023-09-16'),
-(17, 80, 4, 2, '2023-10-22'),
-(18, 90, 4, 3, '2023-11-27'),
-(19, 85, 4, 1, '2024-01-12'),
-(20, 95, 4, 2, '2024-02-24'),
-
-(21, 88, 5, 1, '2023-09-18'),
-(22, 92, 5, 2, '2023-10-25'),
-(23, 75, 5, 3, '2023-11-29'),
-(24, 78, 5, 1, '2024-01-15'),
-(25, 85, 5, 2, '2024-03-01'),
-
-(26, 70, 6, 1, '2023-09-20'),
-(27, 95, 6, 2, '2023-10-30'),
-(28, 80, 6, 3, '2023-12-01'),
-(29, 90, 6, 1, '2024-01-17'),
-(30, 85, 6, 2, '2024-03-05'),
-
-(31, 83, 7, 1, '2023-09-22'),
-(32, 76, 7, 2, '2023-10-02'),
-(33, 89, 7, 3, '2023-11-05'),
-(34, 91, 7, 1, '2024-01-22'),
-(35, 74, 7, 2, '2024-03-10'),
-
-(36, 93, 8, 1, '2023-09-24'),
-(37, 80, 8, 2, '2023-10-04'),
-(38, 78, 8, 3, '2023-11-07'),
-(39, 85, 8, 1, '2024-01-24'),
-(40, 91, 8, 2, '2024-03-12'),
-
-(41, 88, 9, 1, '2023-09-26'),
-(42, 95, 9, 2, '2023-10-06'),
-(43, 80, 9, 3, '2023-11-09'),
-(44, 92, 9, 1, '2024-01-26'),
-(45, 77, 9, 2, '2024-03-14'),
-
-(46, 79, 10, 1, '2023-09-28'),
-(47, 86, 10, 2, '2023-10-08'),
-(48, 83, 10, 3, '2023-11-11'),
-(49, 81, 10, 1, '2024-01-28'),
-(50, 93, 10, 2, '2024-03-16'),
-
-(51, 77, 11, 1, '2023-10-01'),
-(52, 79, 11, 2, '2023-10-10'),
-(53, 90, 11, 3, '2023-11-13'),
-(54, 82, 11, 1, '2024-02-01'),
-(55, 84, 11, 2, '2024-03-18'),
-
-(56, 91, 12, 1, '2023-10-03'),
-(57, 87, 12, 2, '2023-10-12'),
-(58, 79, 12, 3, '2023-11-15'),
-(59, 92, 12, 1, '2024-02-03'),
-(60, 75, 12, 2, '2024-03-20'),
-
-(61, 85, 13, 1, '2023-10-05'),
-(62, 80, 13, 2, '2023-10-14'),
-(63, 87, 13, 3, '2023-11-17'),
-(64, 79, 13, 1, '2024-02-05'),
-(65, 91, 13, 2, '2024-03-22'),
-
-(66, 84, 14, 1, '2023-10-07'),
-(67, 90, 14, 2, '2023-10-16'),
-(68, 77, 14, 3, '2023-11-19'),
-(69, 82, 14, 1, '2024-02-07'),
-(70, 75, 14, 2, '2024-03-24'),
-
-(71, 79, 15, 1, '2023-10-09'),
-(72, 88, 15, 2, '2023-10-18'),
-(73, 93, 15, 3, '2023-11-21'),
-(74, 86, 15, 1, '2024-02-09'),
-(75, 80, 15, 2, '2024-03-26');
-
-INSERT INTO spec_teacher (spec_id, teacher_id) VALUES
-(1, 1), 
-(1, 2), 
-(1, 3), 
-(2, 1),  
-(2, 3); 
-
-
-select * from  spec_teacher;
-select * from ocenki;
-select * from teachers;
-select * from students;
-select * from gruppy;
-select * from spec;
-
-CREATE TABLE login (
-    id_user SERIAL PRIMARY KEY,
-    id_student INT UNIQUE,
-    login VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    CONSTRAINT fk_login_student FOREIGN KEY (id_student) REFERENCES students (id_student)
+-- 4. Таблица студентов (зависимость от групп)
+CREATE TABLE skating_students (
+    skate_student_id INT PRIMARY KEY,
+    fullname VARCHAR(100),
+    birthday DATE,
+    group_id INT,
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
 );
 
 
-INSERT INTO login (id_student, login, password) VALUES
-(1, 'shugaeva_anel', 'Anel2008'),
-(2, 'kalieva_aidana', 'Aidana2007'),
-(3, 'tekik_fatih', 'Fatih2008'),
-(4, 'raimbekova_ayim', 'Aiym2008'),
-(5, 'zhakupbekova_diana', 'Diana2007'),
-(6, 'poperechniy_danila', 'Danil2024'),
-(7, 'muzichenko_yuriy', 'Yuriy2024'),
-(8, 'prusikin_ilya', 'Ilya2024'),
-(9, 'gabidullin_ruslan', 'Ruslan2024'),
-(10, 'kuplinov_dmitriy', 'Dmitriy2024'),
-(11, 'pavel_viktor', 'Viktor2024'),
-(12, 'volya_pavel', 'Pavel2024'),
-(13, 'bykov_andrey', 'Andrey2024'),
-(14, 'lobanov_semen', 'Semen2024'),
-(15, 'saburov_nurlan', 'Nurlan2024');
-
-select * from login
-
-CREATE OR REPLACE FUNCTION update_login(
-    p_id_student INT,
-    o_login VARCHAR(50),
-    o_password VARCHAR(255),
-    n_login VARCHAR(50) DEFAULT NULL,
-    n_password VARCHAR(255) DEFAULT NULL
-)
-RETURNS TEXT AS $$
-DECLARE
-    current_login VARCHAR(50);
-    current_password VARCHAR(255);
-BEGIN
-    
-    SELECT login, password
-    INTO current_login, current_password
-    FROM login
-    WHERE id_student = p_id_student;
-
-    
-    IF current_login != o_login OR current_password != o_password THEN
-        RAISE EXCEPTION 'Неверный текущий логин или пароль';
-    END IF;
-
-    
-    IF n_login IS NULL AND n_password IS NULL THEN
-        RAISE EXCEPTION 'Необходимо указать новый логин или новый пароль';
-    END IF;
-
-    
-    IF n_login IS NOT NULL THEN
-        UPDATE login
-        SET login = p_new_login
-        WHERE id_student = p_id_student;
-    END IF;
-
-    
-    IF n_password IS NOT NULL THEN
-        UPDATE login
-        SET password = n_password
-        WHERE id_student = p_id_student;
-    END IF;
-
-    RETURN 'Логин и/или пароль успешно обновлены';
-END;
-$$ LANGUAGE plpgsql;
 
 
-SELECT update_login(
-    1, 
-    'shugaeva_anel', 
-    'Anel2008', 
-    NULL, 
-    'New2008'
+-- 5. Таблица входа тренеров (зависимость от тренеров)
+CREATE TABLE coach_login (
+    coach_login_id INT PRIMARY KEY,
+    coach_id INT, 
+    coach_login VARCHAR(100),
+    coach_password VARCHAR(100),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
 );
 
-insert into teachers(id_teacher, fio_teacher, iin, nazvanie_predmeta) values
-(4, 'Жолдықараева Еркеайым Бағланқызы', '972345678912', ' Составление алгоритма и создание блок схемы на основе спецификации программного обеспечения');
-
-create table teacher_login(
-	teacher_login_id serial primary key,
-	id_teacher int not null unique,
-	login VARCHAR(100),
-	password VARCHAR(100),
-	foreign key (id_teacher) references teachers(id_teacher)
+-- 6. Таблица входа студентов (зависимость от студентов)
+CREATE TABLE stud_login (
+    stud_login_id INT PRIMARY KEY,
+    skate_student_id INT,
+    stud_login VARCHAR(100),
+    stud_password VARCHAR(100),
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id)
 );
 
-insert into teacher_login(teacher_login_id, id_teacher, login, password) values
-(1, 1, 'ahmadieva_arai', 'arai88'),
-(2, 2, 'shapiggulin_bekdaulet', 'plake_plake1'),
-(3, 3, 'muzdanov_bayirzhan', 'muzdanov_boba1101'),
-(4, 4, 'zholdyrkaeva_erkeaiym', 'erke23_32');
-
-select * from teacher_login;
-
-create table user_roles(
-	id_role serial primary key,
-	id_student int,
-	id_teacher int,
-	role_name VARCHAR(30),
-	foreign key (id_student) references login(id_student),
-	foreign key (id_teacher) references teacher_login(id_teacher)
+-- 7. Таблица чата студентов (зависимость от студентов и групп)
+CREATE TABLE stud_chat (
+    stud_chat_id SERIAL PRIMARY KEY,
+    skate_student_id INT, 
+    group_id INT,
+    skate_chat_id INT,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
 );
 
-insert into user_roles(id_role, id_student, id_teacher, role_name) values
+-- 8. Таблица расписания (зависимость от групп)
+CREATE TABLE skate_rescheldue (
+    reschedule_id SERIAL PRIMARY KEY,
+    group_id INT,
+    text_message TEXT,
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
+);
+
+-- 9. Таблица посещаемости (зависимость от студентов и тренеров)
+CREATE TABLE attendance (
+    attendance_id SERIAL PRIMARY KEY,
+    attendance VARCHAR(1),
+    skate_student_id INT,
+    coach_id INT,
+    date DATE,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+-- 10. Таблица документов (зависимость от студентов)
+CREATE TABLE docs (
+    document_id SERIAL PRIMARY KEY,
+    skate_student_id INT,
+    name_file VARCHAR(255),
+    path_file TEXT,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id)
+);
+
+-- 11. Таблица ролей (зависимость от студентов и тренеров)
+CREATE TABLE roles (
+    role_id INT PRIMARY KEY,
+    skate_student_id INT,
+    coach_id INT,
+    role VARCHAR(30),
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+INSERT INTO category (id_category, category_name) VALUES
+(1, 'Старшая'),
+(2, 'Средняя'),
+(3, 'Младшая');
+INSERT INTO coach (coach_id, coach_name) VALUES
+(5, 'Madina'),
+(1, 'Ясмин'),
+(2, 'Майя'),
+(3, 'Фатих'),
+(4, 'Салима');
+
+INSERT INTO groups (group_id, id_category, coach_id) VALUES
+(1, 1, 1),
+(2, 2, 2),
+(3, 3, 3),
+(4, 3, 4);
+INSERT INTO skating_students (skate_student_id, fullname, birthday, group_id) VALUES
+(1, 'Адема Мурзанова', '2017-09-25', 1),
+(2, 'Амина Бектурганова', '2018-01-13', 1),
+(3, 'Амира Мейрамова', '2017-05-21', 1),
+(4, 'Aсылым Еншібай', '2017-06-28', 1),
+(5, 'Даяня Нурлан', '2016-11-24', 1),
+(6, 'Маржан Муратканова', '2017-07-17', 1),
+(7, 'Мариям Амиртай', '2017-04-16', 1),
+(8, 'Марьям Айтпек', '2016-08-03', 1),
+(9, 'Сенiм Малик', '2014-11-09', 1),
+(10, 'Айару Есенова', '2015-05-29', 1),
+(11, 'Марат Аяру', '2017-03-31', 1),
+(12, 'Марат Даяня', '2018-11-27', 1),
+(13, 'Есенова Райлана', '2017-09-09', 1),
+(14, 'Аиша Кабдушева', '2020-02-21', 2),
+(15, 'Балауса Байтенова', '2019-11-13', 2),
+(16, 'Зейнеп Атай Азра', '2018-12-14', 2),
+(17, 'Мариям Жеттiс', '2019-05-28', 2),
+(18, 'Салтанат Мурзанова', '2019-07-03', 2),
+(19, 'Селин Науруз', '2021-01-10', 2),
+(20, 'Ланика Аринанда', '2018-04-20', 2),
+(21, 'Сара Шамсутдинова', '2016-07-20', 2),
+(22, 'Амина Жадраева', '2015-06-25', 2),
+(23, 'Марат Мерей', '2020-03-21', 2),
+(24, 'Амаль Ерлан', '2017-03-11', 2),
+(25, 'Аяла Беембетова', '2017-07-27', 2),
+(26, 'Сарыгюль Кайла', '2018-04-20', 2),
+(27, 'Амалия Бисатова', '2017-01-30', 3),
+(28, 'Инкар Иралимова', '2017-09-09', 3),
+(29, 'Ханшайын Ахматолла', '2017-12-25', 3),
+(30, 'Зейiн Ахматолла', '2020-10-07', 3),
+(31, 'Жанайши Каржас', '2020-10-07', 3),
+(32, 'Жанбота Толеген', '2017-09-27', 3),
+(33, 'Касым Айтпек', '2020-01-19', 3),
+(34, 'Зере Азаматкызы', '2018-05-08', 3),
+(35, 'Сафия Ербулат', '2018-11-06', 4),
+(36, 'Дарина Мурзабаева', '2019-02-23', 4),
+(37, 'Наркес Сейлбек', '2017-10-14', 4),
+(38, 'Айлана Адамзатбова', '2017-06-04', 4),
+(39, 'Radmila Dyyak', '2019-10-29', 4),
+(40, 'Альма Садыкова', '2021-04-04', 4),
+(41, 'Дания Ерлан', '2020-01-28', 2);
+
+
+INSERT INTO stud_login (stud_login_id, skate_student_id, stud_login, stud_password) VALUES
+(1, 1, 'adema_murz_1', 'adema_1'),
+(2, 2, 'amina_bekt_2', 'amina_2'),
+(3, 3, 'amira_meir_3', 'amira_3'),
+(4, 4, 'asylim_yensh_4', 'asylym_4!'),
+(5, 5, 'dayanya_nurl_5', 'dayana_5'),
+(6, 6, 'marzhan_mur_6', 'marzhan_6'),
+(7, 7, 'mariyam_amir_7', 'mariyam_7'),
+(8, 8, 'maryam_aitp_8', 'mariyam_8'),
+(9, 9, 'senim_mal_9', 'malik_9'),
+(10, 10, 'ayaru_esen_10', 'ayaru_10'),
+(11, 11, 'marat_ayaru_11', 'marat_aya_11'),
+(12, 12, 'marat_dayan_12', 'dayan_12'),
+(13, 13, 'esenova_rail_13', 'esenova_aya_13'),
+(14, 14, 'aisha_kabd_14', 'aisha_14'),
+(15, 15, 'balausa_bai_15', 'balausa_15'),
+(16, 16, 'zeynep_atay_16', 'zeynep_16'),
+(17, 17, 'mariyam_jeti_17', 'mariyam_jeti_17'),
+(18, 18, 'saltanat_mur_18', 'saltanat_18'),
+(19, 19, 'selin_naur_19', 'selin_19'),
+(20, 20, 'lanika_arin_20', 'lanika_20'),
+(21, 21, 'sara_shams_21', 'sara_21'),
+(22, 22, 'amina_jadr_22', 'amina_22'),
+(23, 23, 'marat_merey_23', 'merey_23'),
+(24, 24, 'amal_erlan_24', 'erlan_24'),
+(25, 25, 'ayala_beem_25', 'ayala_25'),
+(26, 26, 'sarygul_kay_26', 'sarygyl_26'),
+(27, 27, 'amaliya_bis_27', 'amaliya_27'),
+(28, 28, 'inkar_iral_28', 'inkar_28'),
+(29, 29, 'khanshayn_akh_29', 'khansayan_29'),
+(30, 30, 'zeyin_akh_30', 'zeiyn_31'),
+(31, 31, 'zhanaishy_kar_31', 'zhanaishy_32'),
+(32, 32, 'zhanbota_tol_32', 'zhanbota_33'),
+(33, 33, 'kasym_aitp_33', 'kasym_33'),
+(34, 34, 'zere_azam_34', 'zere_34'),
+(35, 35, 'safiya_erbu_35', 'safiya_35'),
+(36, 36, 'darina_murz_36', 'darina_36'),
+(37, 37, 'narkes_seil_37', 'narkes_37'),
+(38, 38, 'ailana_adam_38', 'ailana_38'),
+(39, 39, 'radmila_dyy_39', 'radmila_39'),
+(40, 40, 'alma_sadyk_40', 'alma_40'),
+(41, 41, 'daniya_erlan_41', 'daniya_41');
+INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
+(46,null,5,'admin'),
 (1, 1, null, 'student'),
 (2, 2, null, 'student'),
 (3, 3, null, 'student'),
@@ -314,75 +217,47 @@ insert into user_roles(id_role, id_student, id_teacher, role_name) values
 (13, 13, null, 'student'),
 (14, 14, null, 'student'),
 (15, 15, null, 'student'),
-(16, null, 1, 'teacher'),
-(17, null, 2, 'teacher'),
-(18, null, 3, 'teacher'),
-(19, null, 4, 'teacher');
+(16, 16, null, 'student'),
+(17, 17, null, 'student'),
+(18, 18, null, 'student'),
+(19, 19, null, 'student'),
+(20, 20, null, 'student'),
+(21, 21, null, 'student'),
+(22, 22, null, 'student'),
+(23, 23, null, 'student'),
+(24, 24, null, 'student'),
+(25, 25, null, 'student'),
+(26, 26, null, 'student'),
+(27, 27, null, 'student'),
+(28, 28, null, 'student'),
+(29, 29, null, 'student'),
+(30, 30, null, 'student'),
+(31, 31, null, 'student'),
+(32, 32, null, 'student'),
+(33, 33, null, 'student'),
+(34, 34, null, 'student'),
+(35, 35, null, 'student'),
+(36, 36, null, 'student'),
+(37, 37, null, 'student'),
+(38, 38, null, 'student'),
+(39, 39, null, 'student'),
+(40, 40, null, 'student'),
+(41, 41, null, 'student'),
+(42, null, 1, 'coach'),
+(43, null, 2, 'coach'),
+(44, null, 3, 'coach'),
+(45, null, 4, 'coach');
 
-select * from user_roles;
+INSERT INTO coach_login (coach_login_id, coach_id, coach_login, coach_password) VALUES
+(5,5,'Madina_admin76','admin76'),
+(1, 1, 'Yasmin_coach1', 'yasmin_t'),
+(2, 2, 'Maya_coach2', 'maya_1'),
+(3, 3, 'Fatih_coach3', 'fatkik'),
+(4, 4, 'Salima_coach4', 'salima_a');
+select *from stud_chat 
+-- Перемещаем Марат Аяру (id=11) и Марат Даяня (id=12) в группу 2 (Средняя)
+UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 11;
+UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 12;
 
-
-CREATE TABLE documents (
-    doc_id serial PRIMARY KEY,          -- Уникальный идентификатор документа
-    stud INT NOT NULL,                    -- ID студента (внешний ключ)
-    file_name VARCHAR(255) NOT NULL,            -- Имя файла
-    file_path TEXT NOT NULL,                    -- Полный путь к файлу
-    FOREIGN KEY (stud) REFERENCES students(id_student) -- Связь с таблицей студентов
-);
-drop table documents
-
-select * from documents
-
-
-INSERT INTO ocenki (id_ocenki, ocenka, id_student, id_teacher, date) VALUES
--- Пропуски для студента 1
-(76, 0, 1, 1, '2024-04-01'),
--- Пропуски для студента 2
-(77, 0, 2, 3, '2024-04-05'),
-(78, 0, 2, 4, '2024-04-07'),
--- Пропуски для студента 3
-(79, 0, 3, 1, '2024-04-09'),
-(80, 0, 3, 2, '2024-04-11'),
-(81, 0, 9, 1, '2024-05-03'),
--- Пропуски для студента 4
-(82, 0, 4, 4, '2024-04-15'),
--- Пропуски для студента 5
-(83, 0, 5, 1, '2024-04-17'),
-(84, 0, 5, 2, '2024-04-19'),
--- Пропуски для студента 6
-(85, 0, 6, 3, '2024-04-21'),
-(86, 0, 6, 4, '2024-04-23'),
-(87, 0, 7, 2, '2024-04-27'),
--- Пропуски для студента 7
-(88, 0, 7, 1, '2024-04-25'),
--- Пропуски для студента 8
-(89, 0, 8, 3, '2024-04-29'),
-(90, 0, 8, 4, '2024-05-01'),
--- Пропуски для студента 9
-(91, 0, 9, 1, '2024-05-03'),
--- Пропуски для студента 10
-(92, 0, 10, 3, '2024-05-07'),
-(93, 0, 10, 4, '2024-05-09'),
--- Пропуски для студента 11
-(94, 0, 11, 1, '2024-05-11'),
-(95, 0, 11, 2, '2024-05-13'),
--- Пропуски для студента 12
-(96, 0, 12, 3, '2024-05-15'),
-(97, 0, 12, 4, '2024-05-17'),
-(98, 0, 4, 3, '2024-04-13'),
--- Пропуски для студента 13
-(99, 0, 13, 1, '2024-05-19'),
-(100, 0, 13, 2, '2024-05-21'),
--- Пропуски для студента 14
-(101, 0, 14, 3, '2024-05-23'),
-(102, 0, 14, 4, '2024-05-25'),
--- Пропуски для студента 15
-(103, 0, 15, 1, '2024-05-27'),
-(104, 0, 15, 2, '2024-05-29'),
-(105, 0, 9, 2, '2024-05-05'),
-(106, 0, 12, 4, '2024-05-17');
-
-
-INSERT INTO teachers (id_teacher, FIO_teacher, IIN, nazvanie_predmeta) VALUES
-(4, 'Жолдыкараева Еркеайым Багланкызы', '030215789123', 'Составление алгоритма и создание блок-схем');
-
+-- Перемещаем Аяла Беембетова (id=25) в группу 1 (Старшая)
+UPDATE skating_students SET group_id = 1 WHERE skate_student_id = 25;

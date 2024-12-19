@@ -22,12 +22,15 @@ function LoginPage({ setIsLoggedIn, setUserRole }) {
 
       if (response.ok) {
         const data = await response.json();
+        if(data.role==='teacher'){
+          localStorage.setItem('id_teacher',data.id_user)
+        }
         console.log('Login successful:', data);
         localStorage.setItem('id_student', data.id_student);
         setIsLoggedIn(true);
         localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userRole', data.role); // Сохраняем роль
-        setUserRole(data.role); // Обновляем состояние роли
+        localStorage.setItem('userRole', data.role);
+        setUserRole(data.role); 
         navigate('/');
       } else {
         const errorData = await response.json();

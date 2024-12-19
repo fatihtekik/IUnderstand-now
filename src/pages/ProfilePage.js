@@ -1,5 +1,3 @@
-// src/pages/ProfilePage.js
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import './ProfilePage.css';
@@ -13,15 +11,12 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (!currentStudentId) {
-      // Если ID студента отсутствует, можно перенаправить на страницу логина или показать сообщение
       setError('ID студента не найден. Пожалуйста, войдите в систему.');
       return;
     }
 
-    setIsLoading(true); // Начало загрузки
-    setError(null); // Сброс предыдущих ошибок
-
-    // Загружаем данные студента с сервера
+    setIsLoading(true);
+    setError(null); 
     fetch(`http://localhost:5000/api/studentWithGroup?id_student=${currentStudentId}`)
       .then((response) => {
         if (!response.ok) {
@@ -40,27 +35,15 @@ const ProfilePage = () => {
       });
   }, [currentStudentId]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('id_student');
-    localStorage.removeItem('userRole');
-    // Предполагается, что вы используете React Router для навигации
-    window.location.href = '/login'; // Перенаправление на страницу логина
-  };
 
   return (
     <div className="profile-page">
       <Sidebar />
       <div className="profile-container">
-        {/* Индикатор загрузки */}
         {isLoading && (
-          <div className="loader"></div> // Спиннер
+          <div className="loader"></div>
         )}
-
-        {/* Сообщение об ошибке */}
         {error && <p className="error-message">{error}</p>}
-
-        {/* Основной контент */}
         {!isLoading && !error && studentInfo && (
           <>
             <div className="profile-header">
