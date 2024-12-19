@@ -1,5 +1,3 @@
-// src/pages/ManageGradesPage.js
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './ManageGradesPage.css';
@@ -13,10 +11,23 @@ function ManageGradesPage() {
   const [studentFilter, setStudentFilter] = useState('');
   const [subjectFilter, setSubjectFilter] = useState('');
 
-  // Функция для получения всех оценок
+  // Состояния для новой оценки
+  const [newGradeData, setNewGradeData] = useState({
+    id_student: '',
+    id_teacher: localStorage.getItem('id_teacher') || '',
+    ocenka: '',
+    date: '' // Формат: YYYY-MM-DD
+  });
+
   const fetchGrades = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/grades');
+      const teacherId = localStorage.getItem('id_teacher'); 
+      console.log("teacherId:", teacherId); // Для отладки
+
+      const response = await axios.get('http://localhost:5000/api/grades', {
+        params: { teacher_id: teacherId }
+      });
+
       setGrades(response.data);
       setFilteredGrades(response.data);
     } catch (err) {
@@ -29,7 +40,6 @@ function ManageGradesPage() {
     fetchGrades();
   }, []);
 
-  // Обновление фильтров
   useEffect(() => {
     const filtered = grades.filter((grade) => {
       const studentMatch = grade.student_fio.toLowerCase().includes(studentFilter.toLowerCase());
@@ -39,23 +49,20 @@ function ManageGradesPage() {
     setFilteredGrades(filtered);
   }, [studentFilter, subjectFilter, grades]);
 
-  // Функция для начала редактирования оценки
   const handleEditClick = (grade) => {
     setEditingGradeId(grade.id_ocenki);
     setEditedGrade({ ocenka: grade.ocenka });
   };
 
-  // Функция для отмены редактирования
   const handleCancelEdit = () => {
     setEditingGradeId(null);
     setEditedGrade({ ocenka: '' });
   };
 
-  // Функция для сохранения изменений
   const handleSaveEdit = async (id_ocenki) => {
     try {
       const response = await axios.put(`http://localhost:5000/api/grades/${id_ocenki}`, editedGrade);
-      // Обновляем список оценок с новыми данными
+      console.log('Edit response:', response.data);  
       setGrades(grades.map((grade) => (grade.id_ocenki === id_ocenki ? response.data : grade)));
       setEditingGradeId(null);
       setEditedGrade({ ocenka: '' });
@@ -65,7 +72,6 @@ function ManageGradesPage() {
     }
   };
 
-  // Функция для удаления оценки
   const handleDelete = async (id_ocenki) => {
     if (!window.confirm('Вы уверены, что хотите удалить эту оценку?')) return;
     try {
@@ -80,6 +86,32 @@ function ManageGradesPage() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditedGrade((prevState) => ({ ...prevState, [name]: value }));
+  };
+
+  // Обработчики для новой оценки
+  const handleNewGradeChange = (e) => {
+    const { name, value } = e.target;
+    setNewGradeData((prevState) => ({ ...prevState, [name]: value }));
+  };
+
+  const handleAddGrade = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://localhost:5000/api/grades/new', newGradeData);
+      console.log('New grade added:', response.data);
+      // После успешного добавления обновляем список оценок
+      fetchGrades();
+      // Сбрасываем поля формы
+      setNewGradeData({
+        id_student: '',
+        id_teacher: localStorage.getItem('id_teacher') || '',
+        ocenka: '',
+        date: ''
+      });
+    } catch (err) {
+      console.error("Ошибка при добавлении оценки:", err);
+      setError('Не удалось добавить оценку.');
+    }
   };
 
   return (
@@ -101,6 +133,33 @@ function ManageGradesPage() {
           onChange={(e) => setSubjectFilter(e.target.value)}
         />
       </div>
+
+      <form onSubmit={handleAddGrade} className="add-grade-form">
+        <h3>Добавить новую оценку</h3>
+        <input
+          type="text"
+          name="id_student"
+          placeholder="ID студента"
+          value={newGradeData.id_student}
+          onChange={handleNewGradeChange}
+        />
+        <input
+          type="number"
+          name="ocenka"
+          placeholder="Оценка"
+          value={newGradeData.ocenka}
+          onChange={handleNewGradeChange}
+          min="0"
+          max="100"
+        />
+        <input
+          type="date"
+          name="date"
+          value={newGradeData.date}
+          onChange={handleNewGradeChange}
+        />
+        <button type="submit">Добавить оценку</button>
+      </form>
 
       <table className="grades-table">
         <thead>
