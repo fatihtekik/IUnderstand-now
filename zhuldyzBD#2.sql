@@ -98,12 +98,74 @@ CREATE TABLE roles (
     FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id),
     FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
 );
+
+-- 12. Таблица заданий тренеров
+CREATE TABLE coach_tasks (
+    task_id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    deadline DATE,
+    created_by INTEGER,
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_completed INTEGER DEFAULT 0, -- 0 = не выполнено, 1 = выполнено
+    FOREIGN KEY (created_by) REFERENCES coach(coach_id)
+);
+
+-- 13. Таблица назначения заданий тренерам
+CREATE TABLE task_assignments (
+    assignment_id INTEGER PRIMARY KEY,
+    task_id INTEGER,
+    coach_id INTEGER,
+    assigned_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_date DATETIME NULL,
+    status INTEGER DEFAULT 0, -- 0 = не выполнено, 1 = выполнено
+    FOREIGN KEY (task_id) REFERENCES coach_tasks(task_id),
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id)
+);
+
+-- 14. Таблица расписания групп по дням недели
+CREATE TABLE group_schedule (
+    schedule_id INTEGER PRIMARY KEY,
+    group_id INTEGER,
+    day_of_week INTEGER, -- 1=ПН, 2=ВТ, 3=СР, 4=ЧТ, 5=ПТ, 6=СБ, 7=ВС
+    start_time TEXT, -- время начала "17:45"
+    end_time TEXT,   -- время окончания "18:45"
+    activity_type TEXT, -- тип занятия "лед", "ОФП", "акробатика" и т.д.
+    is_active INTEGER DEFAULT 1, -- 1 = активно, 0 = отменено
+    FOREIGN KEY (group_id) REFERENCES groups(group_id)
+);
+
+-- 15. Таблица индивидуального расписания студентов (если студент пропускает определенные дни)
+CREATE TABLE student_schedule_exceptions (
+    exception_id INTEGER PRIMARY KEY,
+    skate_student_id INTEGER,
+    day_of_week INTEGER, -- день недели, который студент пропускает
+    exception_type TEXT, -- 'skip' = не приходит в этот день, 'custom' = особое расписание
+    notes TEXT,
+    FOREIGN KEY (skate_student_id) REFERENCES skating_students(skate_student_id)
+);
+
+-- 16. Таблица ежедневных оценок для тренеров и их групп
+CREATE TABLE daily_evaluations (
+    evaluation_id INTEGER PRIMARY KEY,
+    coach_id INTEGER,
+    group_id INTEGER,
+    evaluation_date DATE NOT NULL,
+    performance_score INTEGER CHECK(performance_score >= 1 AND performance_score <= 10), -- Оценка работы
+    group_progress INTEGER CHECK(group_progress >= 1 AND group_progress <= 10), -- Прогресс группы
+    attendance_quality INTEGER CHECK(attendance_quality >= 1 AND attendance_quality <= 10), -- Качество посещаемости
+    notes TEXT, -- Дополнительные заметки
+    created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (coach_id) REFERENCES coach(coach_id),
+    FOREIGN KEY (group_id) REFERENCES groups(group_id),
+    UNIQUE(coach_id, group_id, evaluation_date) -- Одна оценка в день для тренера и группы
+);
 INSERT INTO category (id_category, category_name) VALUES
 (1, 'Старшая'),
 (2, 'Средняя'),
 (3, 'Младшая');
 INSERT INTO coach (coach_id, coach_name) VALUES
-(5, 'Madina')
+(5, 'Madina'),
 (1, 'Ясмин'),
 (2, 'Майя'),
 (3, 'Фатих'),
@@ -201,7 +263,7 @@ INSERT INTO stud_login (stud_login_id, skate_student_id, stud_login, stud_passwo
 (40, 40, 'alma_sadyk_40', 'alma_40'),
 (41, 41, 'daniya_erlan_41', 'daniya_41');
 INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
-(46,null,5,'admin')
+(46,null,5,'admin'),
 (1, 1, null, 'student'),
 (2, 2, null, 'student'),
 (3, 3, null, 'student'),
@@ -249,12 +311,12 @@ INSERT INTO roles (role_id, skate_student_id, coach_id, role) VALUES
 (45, null, 4, 'coach');
 
 INSERT INTO coach_login (coach_login_id, coach_id, coach_login, coach_password) VALUES
-(5,5,'Madina_admin76','admin76')
+(5,5,'Madina_admin76','admin76'),
 (1, 1, 'Yasmin_coach1', 'yasmin_t'),
 (2, 2, 'Maya_coach2', 'maya_1'),
 (3, 3, 'Fatih_coach3', 'fatkik'),
 (4, 4, 'Salima_coach4', 'salima_a');
-select *from stud_chat 
+
 -- Перемещаем Марат Аяру (id=11) и Марат Даяня (id=12) в группу 2 (Средняя)
 UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 11;
 UPDATE skating_students SET group_id = 2 WHERE skate_student_id = 12;
