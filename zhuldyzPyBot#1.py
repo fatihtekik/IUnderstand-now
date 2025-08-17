@@ -26,6 +26,60 @@ def escape_markdown(text: str, version: int = 2) -> str:
             escaped.append(ch)
     return ''.join(escaped)
 
+# Безопасное форматирование дат из SQLite (могут приходить как строки)
+def format_date_for_display(value) -> str:
+    """Возвращает дату в формате ДД.ММ.ГГГГ из значения SQLite (str/date/datetime)."""
+    try:
+        # Если уже date/datetime
+        if hasattr(value, 'strftime'):
+            return value.strftime('%d.%m.%Y')
+        # Если строка — пробуем ISO 'YYYY-MM-DD' или 'YYYY-MM-DD HH:MM:SS'
+        if isinstance(value, str):
+            try:
+                # Полная дата-время
+                from datetime import datetime
+                if ' ' in value:
+                    dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+                    return dt.strftime('%d.%m.%Y')
+                # Только дата
+                dt = datetime.strptime(value, '%Y-%m-%d')
+                return dt.strftime('%d.%m.%Y')
+            except Exception:
+                return value  # оставляем как есть
+        # Любой другой тип
+        return str(value)
+    except Exception:
+        return str(value)
+
+def send_long_message(chat_id: int, text: str, parse_mode: str | None = None):
+    """Отправка длинного текста несколькими сообщениями, чтобы не упасть по лимиту Telegram (~4096)."""
+    try:
+        if not text:
+            return
+        limit = 4000  # запас от 4096
+        idx = 0
+        n = len(text)
+        while idx < n:
+            end = min(idx + limit, n)
+            if end < n:
+                # стараемся резать по границе абзаца/строки
+                cut = text.rfind('\n\n', idx, end)
+                if cut == -1:
+                    cut = text.rfind('\n', idx, end)
+                if cut == -1:
+                    cut = end
+            else:
+                cut = end
+            chunk = text[idx:cut]
+            bot.send_message(chat_id, chunk, parse_mode=parse_mode)
+            idx = cut
+    except Exception as e:
+        # на всякий случай fallback одним сообщением без parse_mode
+        try:
+            bot.send_message(chat_id, text)
+        except Exception as ex:
+            logging.error(f"Не удалось отправить сообщение: {ex}")
+
 def connect_to_db():
     try:
         # Создаем подключение к SQLite базе данных
@@ -1206,7 +1260,7 @@ def process_date_range(message):
             for student, attendances in attendance_dict.items():
                 result += f"👤 Студент: {student}\n"
                 for att in attendances:
-                    date_str = att[0].strftime('%d.%m.%Y')
+                    date_str = format_date_for_display(att[0])
                     status = attendance_status_str(att[1])
                     result += f"   📌 {date_str}: {status}\n"
                 result += "\n"
@@ -1262,12 +1316,12 @@ def process_date_range(message):
         for student, attendances in attendance_dict.items():
             result += f"👤 Студент: {student}\n"
             for att in attendances:
-                date_str = att[0].strftime('%d.%m.%Y')
+                date_str = format_date_for_display(att[0])
                 status = attendance_status_str(att[1])
                 result += f"   📌 {date_str}: {status}\n"
             result += "\n"
 
-    bot.send_message(chat_id, result)
+    send_long_message(chat_id, result)
     user_data[chat_id]["step"] = "authenticated"
 
 def attendance_status_str(value):
